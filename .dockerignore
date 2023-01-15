@@ -1,0 +1,13 @@
+# JS stuff
+node_modules
+
+# Dev stuff
+.git
+.gitignore
+LICENSE
+README.md
+.vscode
+__pycache__
+*.pyc
+portfolio_venv/
+db.sqlite3
