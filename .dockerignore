@@ -10,4 +10,5 @@ README.md
 __pycache__
 *.pyc
 portfolio_venv/
+portfolio/media/user_*/
 db.sqlite3

@@ -18,6 +18,7 @@ local_settings.py
 /build
 migrations/
 portfolio_venv/
+portfolio/media/user_*/
 
 # misc
 .DS_Store

@@ -1,0 +1,21 @@
+{% extends "backend/layout.html" %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block body %}
+
+{% if request.user.is_authenticated %}
+
+<div id="dashboard-page"></div>
+
+{% endif %}
+
+{% endblock %}
+
+{% block script %}
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+
+<script type="text/babel" src="{% static 'backend/dashboard.js' %}"></script>
+{% endblock %}

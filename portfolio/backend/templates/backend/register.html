@@ -1,0 +1,22 @@
+{% extends "backend/layout.html" %}
+
+{% block title %}Register{% endblock %}
+
+{% block body %}
+
+
+<form enctype="multipart/form-data" action="{% url 'backend:register' %}" method="post" class="mb-3 mx-auto w-50">
+    <!--h2 class="fw-semibold mb-3">Register</h2-->
+
+    {% csrf_token %}
+    {% include "backend/generic_form.html" with form=registerForm %}
+    <input class="btn btn-primary" type="submit" value="Register">
+
+</form>
+
+<div class="mx-auto w-50">
+    <div class="text-start fs-6">
+        Already have an account? <a href="{% url 'backend:login' %}">Log In here.</a></div>
+</div>
+
+{% endblock %}

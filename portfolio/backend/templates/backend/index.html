@@ -1,0 +1,21 @@
+{% extends "backend/layout.html" %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}Overview{% endblock %}
+
+{% block body %}
+
+<h1>A Simplistic Portfolio Tracker</h1>
+<p class="lead">Portfolio Tracker allows you to build your crypto portfolio and track your
+    cryptocurrencies accurately free of charge.</p>
+
+<div id="market-overview"></div>
+
+{% endblock %}
+
+{% block script %}
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+
+<script type="text/babel" src="{% static 'backend/index.js' %}"></script>
+{% endblock %}

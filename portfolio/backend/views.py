@@ -38,11 +38,11 @@ def index(request):
     # Authenticated users view their inbox
     if request.user.is_authenticated:
         print(f"user {request.user.username} is authenticated.")
-        return render(request, "portfolio/index.html")
+    return render(request, "backend/index.html")
 
     # Everyone else is prompted to sign in
-    else:
-        return HttpResponseRedirect(reverse("backend:login"))
+    #else:
+    #    return HttpResponseRedirect(reverse("backend:login"))
 
 @sensitive_post_parameters('user', 'password')
 def login_view(request):
@@ -66,10 +66,10 @@ def login_view(request):
             else:
                 return render(
                     request,
-                    "portfolio/login.html",
+                    "backend/login.html",
                 )
 
-    return render(request, "portfolio/login.html", {"loginForm": loginForm})
+    return render(request, "backend/login.html", {"loginForm": loginForm})
 
 
 def logout_view(request):
@@ -102,7 +102,7 @@ def register(request):
                     request, messages.ERROR, f"Registration failed as {user.username}"
                 )
                 return render(
-                    request, "portfolio/register.html", {"registerForm": registerForm}
+                    request, "backend/register.html", {"registerForm": registerForm}
                 )
 
             login(request, user)
@@ -122,11 +122,11 @@ def register(request):
     else:
         registerForm = CustomUserCreationForm()
 
-    return render(request, "portfolio/register.html", {"registerForm": registerForm})
+    return render(request, "backend/register.html", {"registerForm": registerForm})
 
 @login_required
 def dashboard(request):
-    return render(request, "portfolio/dashboard.html")
+    return render(request, "backend/dashboard.html")
 
 @login_required
 def transaction(request):
@@ -187,7 +187,7 @@ def transaction(request):
     else:
         transactionForm = TransactionForm()
 
-    return render(request, "portfolio/transaction.html", {"form": transactionForm})
+    return render(request, "backend/transaction.html", {"form": transactionForm})
 
 @login_required
 def transactionHistory(request):
@@ -201,7 +201,7 @@ def transactionHistory(request):
         serialize_txs.append(newTx)
         tx.user = None
     
-    return render(request, "portfolio/transactionHistory.html", {"txs":serialize_txs})
+    return render(request, "backend/transactionHistory.html", {"txs":serialize_txs})
 
 @login_required
 def userProfile(request):
@@ -273,7 +273,7 @@ def userProfile(request):
         passwordChangeForm = PasswordChangeForm(user=request.user)
         registerForm = CustomUserChangeForm()
         
-    return render(request, "portfolio/userProfile.html", {"user": request.user, "registerForm": registerForm, "passwordChangeForm": passwordChangeForm})
+    return render(request, "backend/userProfile.html", {"user": request.user, "registerForm": registerForm, "passwordChangeForm": passwordChangeForm})
 
 # -------------- API Routes --------------
 @csrf_exempt

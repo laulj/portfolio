@@ -1,0 +1,68 @@
+{% load widget_tweaks %}
+
+{% for hidden_field in form.hidden_fields %}
+{{ hidden_field }}
+{% endfor %}
+
+{% if form.non_field_errors %}
+<div class="alert alert-danger mb-3" role="alert">
+    {% for error in form.non_field_errors %}
+    {{ error }}
+    {% endfor %}
+</div>
+{% endif %}
+
+{% for field in form.visible_fields %}
+{% if field.html_name == 'profile_image' %}
+<div class="lh-1 mb-3">
+    <div class="row">
+        <label for="{{ field.id_for_label }}" class="col-sm-2 col-form-label form-control-sm text-muted">
+            Profile img
+        </label>
+        <div class="col-sm-10">
+            {% if form.is_bound %}
+            {% if field.errors %}
+            {% render_field field class="form-control form-control-sm is-invalid" %}
+            {% for error in field.errors %}
+            <div class="invalid-feedback">
+                {{ error }}
+            </div>
+            {% endfor %}
+            {% else %}
+            {% render_field field class="form-control form-control-sm is-valid" %}
+            {% endif %}
+            {% else %}
+            {% render_field field class="form-control form-control-sm" %}
+            {% endif %}
+
+            {% if field.help_text %}
+            <div class="form-text form-control-sm text-start text-muted" style="font-size:12px;">{{ field.help_text }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="form-floating lh-1 mb-3">
+    {% if form.is_bound %}
+    {% if field.errors %}
+    {% render_field field class="form-control is-invalid" %}
+    {% for error in field.errors %}
+    <div class="invalid-feedback">
+        {{ error }}
+    </div>
+    {% endfor %}
+    {% else %}
+    {% render_field field class="form-control is-valid" %}
+    {% endif %}
+    {% else %}
+    {% render_field field class="form-control" %}
+    {% endif %}
+    <label for="{{ field.id_for_label }}" class="text-muted">{{ field.label }}</label>
+    {% if field.help_text %}
+    <div class="form-text text-start text-muted" style="font-size:12px;">{{ field.help_text }}</div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% endfor %}
