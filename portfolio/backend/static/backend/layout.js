@@ -12,13 +12,14 @@ switch (title) {
     case 'Login':
         nav_link = document.getElementsByClassName("nav-login");
         break;
-    case 'Features':
-        nav_link = document.getElementsByClassName("nav-features");
+    case 'Register':
+        nav_link = document.getElementsByClassName("nav-login");
         break;
     case 'Profile':
         drpdown_profile.setAttribute("aria-current", "true");
         drpdown_profile.classList.add("active");
         break;
+
     default:
         drpdown_profile.setAttribute("aria-current", "false");
         drpdown_profile.classList.remove("active");

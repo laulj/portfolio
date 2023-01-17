@@ -6,7 +6,6 @@
 
 
 <form enctype="multipart/form-data" action="{% url 'backend:register' %}" method="post" class="mb-3 mx-auto w-50">
-    <!--h2 class="fw-semibold mb-3">Register</h2-->
 
     {% csrf_token %}
     {% include "backend/generic_form.html" with form=registerForm %}

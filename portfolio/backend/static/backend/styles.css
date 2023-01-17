@@ -28,6 +28,11 @@ body {
     border: 0px;
 }
 
+div[class="user-dropdown"] ul {
+    max-width: 3vw !important;
+    background-color: red !important;
+}
+
 .nav-account {
     padding-top: 2.5px !important;
 }

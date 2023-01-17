@@ -34,15 +34,7 @@ from .admin import CustomUserCreationForm
 
 
 def index(request):
-
-    # Authenticated users view their inbox
-    if request.user.is_authenticated:
-        print(f"user {request.user.username} is authenticated.")
     return render(request, "backend/index.html")
-
-    # Everyone else is prompted to sign in
-    #else:
-    #    return HttpResponseRedirect(reverse("backend:login"))
 
 @sensitive_post_parameters('user', 'password')
 def login_view(request):
@@ -132,11 +124,6 @@ def dashboard(request):
 def transaction(request):
 
     if request.method == "POST":
-        # create a form instance and populate it with data from the request
-        #print("readhere:",request.POST.getlist('portfolio'))
-        
-        print(f"request.Post: {request.POST}")
-        #print(transactionForm);
         # Clean and validate the form
         new_portfolio = []
         for index, portfolio in enumerate(request.POST.getlist('portfolio')):
@@ -146,15 +133,12 @@ def transaction(request):
             except (ObjectDoesNotExist, ValueError) as error:
                 obj, created = Portfolio.objects.get_or_create(user=request.user, name=portfolio)
                 if created:
-                    print(f"Portfolio: {portfolio} created!")
                     new_portfolio.append(obj.id)
                     #request.POST.getlist('portfolio')[index] = obj.id
                 else:
                     messages.add_message(
                         request, messages.ERROR, _(f"Failed to create Portfolio {portfolio}.")
                     )
-                    print(error)
-        #print(f"new portfolio: {request.POST.getlist('portfolio')} and {new_portfolio}")
         user_request = {
             'type': request.POST.get('type'),
             'symbol_id': request.POST.get('symbol_id'),
@@ -181,18 +165,16 @@ def transaction(request):
             # save the many-to-many data for the form
             transactionForm.save_m2m()
 
-            print("form is valid")
             return HttpResponseRedirect(reverse("backend:dashboard"))
         
     else:
-        transactionForm = TransactionForm()
+        transactionForm = TransactionForm(request=request)
 
     return render(request, "backend/transaction.html", {"form": transactionForm})
 
 @login_required
 def transactionHistory(request):
     txs = Transaction.objects.filter(user=request.user)
-    portfolio = []
     serialize_txs = []
     for tx in txs:
         newTx = tx.serialize()
@@ -205,18 +187,12 @@ def transactionHistory(request):
 
 @login_required
 def userProfile(request):
-    print('user:',request.user.profile_image, request.user.profile_image.url)
-
     if request.method == "POST":
         action = request.POST.get('action')
-        print('action:', action)
 
         # create a form instance and populate it with data from the request
         if action == 'Update':
             registerForm = CustomUserChangeForm(request.POST, request.FILES, instance = get_object_or_404(User, pk=request.user.id))
-            print(f"request.POST: {request.POST}")
-            print(f"request.FILES: {request.FILES}")
-            #print(f'registerForm:', registerForm)
             # Clean and validate the form
             if registerForm.is_valid():
                 #int('cleaned_data:', registerForm)
@@ -235,13 +211,11 @@ def userProfile(request):
                     f"User profile updated!",
                 )
                 return HttpResponseRedirect(reverse("backend:userProfile"))
-            else:
-                print('CustomUserChangeForm is invalid')
+
             # Intialize form to return
             passwordChangeForm = PasswordChangeForm(user=request.user)
 
         elif action == 'Change':
-            print(f"request.POST: {request.POST}")
             passwordChangeForm = PasswordChangeForm(request.user, request.POST)
 
             # Clean and validate the form
@@ -258,18 +232,14 @@ def userProfile(request):
                     f"Password changed!",
                 )
                 return HttpResponseRedirect(reverse("backend:userProfile"))
-            else:
-                print('UserChangePasswordForm is invalid')
+
             # Intialize form to return
             registerForm = CustomUserChangeForm()
-            print('formErrors:',passwordChangeForm.errors.as_json())
         else:
             # Invalid action value
             return defaults.bad_request(request, 400)
             
     else:
-        #userChangeForm = UserChangeForm(instance=request.user)
-        #passwordResetForm = PasswordResetForm()
         passwordChangeForm = PasswordChangeForm(user=request.user)
         registerForm = CustomUserChangeForm()
         
@@ -283,16 +253,15 @@ def portfolio(request):
     try:
         portfolios = Portfolio.objects.filter(user=request.user)
     except ObjectDoesNotExist:
-        return JsonResponse({"error": "no portfolio found."}, status=404)
+        return JsonResponse({"error": "No portfolio found."}, status=404)
 
     # Return portfolio contents
     if request.method == "GET":
         return JsonResponse([portfolio.serialize() for portfolio in portfolios], safe=False)
 
-    # Email must be via GET or PUT
     else:
         return JsonResponse({
-            "error": "GET or PUT request required."
+            "error": "GET request required."
         }, status=400)
 
 @csrf_exempt
@@ -301,23 +270,36 @@ def portfolio_id(request, portf_id):
     # To Remove a portfolio
     try:
         portfolio = Portfolio.objects.get(user=request.user, pk=portf_id)
-        txs = Transaction.objects.filter(user=request.user, portfolio=Portfolio.objects.get(user=request.user, pk=portf_id))
-        txs = [tx.serialize() for tx in txs]
     except ObjectDoesNotExist:
-        return JsonResponse({"error": "no portfolio found."}, status=404)
+        return JsonResponse({"error": "No portfolio found."}, status=404)
 
+    portfolios = [portf.serialize() for portf in Portfolio.objects.filter(user=request.user)]
+    txs = Transaction.objects.filter(user=request.user, portfolio=portfolio)
+    txs = [tx.serialize() for tx in txs]
+    print('portfolios:', portfolios, len(portfolios) > 2)
     # Remove the portfolio requested
     if request.method == "POST":
-        print(f"to delete", portfolio)
-        print(f"txs:", txs)
-        if len(txs) != 0: 
-            for tx in txs:
-                if len(tx["portfolio"]) == 1:
-                    Transaction.objects.get(user=request.user, pk=tx["id"]).delete()
-                    print("tx to delete:",tx)
-        # delete all txs related
-        portfolio.delete()
-        return HttpResponse(status=204)
+        print(txs)
+        # Only remove the portfolio if there exists more than one
+        if len(portfolios) > 1:
+            # Remove the corresponding transactions
+            if len(txs) != 0: 
+                for tx in txs:
+                    # Do not remove transaction related to multiple portfolios
+                    if len(tx["portfolio"]) != 1:
+                        print('before removal:', tx)
+                        Transaction.objects.get(user=request.user, pk=tx["id"]).portfolio.remove(portfolio)
+                        print('after removal:', Transaction.objects.get(user=request.user, pk=tx["id"]))
+                    else:
+                        Transaction.objects.get(user=request.user, pk=tx["id"]).delete()
+                        pass
+            # Remove the portfolio
+            portfolio.delete()
+            return HttpResponse(status=204)
+        else:
+            return JsonResponse({
+                "error": "Couldn't delete the only portfolio."
+            }, status=404)
 
     # Portfolio removal must be via POST
     else:
@@ -332,7 +314,7 @@ def tx(request, tx_id):
     try:
         tx = Transaction.objects.get(user=request.user, id=tx_id)
     except tx.DoesNotExist:
-        return JsonResponse({"error": "no txs found."}, status=404)
+        return JsonResponse({"error": "No tx found."}, status=404)
 
     # Return every transaction contents
     if request.method == "GET":
@@ -341,14 +323,13 @@ def tx(request, tx_id):
     # Update transaction content or remove transaction
     elif request.method == "PUT":
         data = json.loads(request.body)
-        print(f"data: {data}")
+        # Create datetime object
         datetime_object = datetime.strptime(data["created_on"], "%Y-%m-%dT%H:%M:%S")
-        print(f"datetime_object: {datetime_object}")
-        # Retrieve the portfolio ids for form validation later
-        portfolio_ids = data['portfolio']
         data['created_on'] = datetime_object
+        # Backup the portfolio ids for form validation later
+        portfolio_ids = data['portfolio']
+        # Configure the portfolio instances
         data['portfolio'] = [Portfolio.objects.get(user=request.user, pk=portfolio_id) for portfolio_id in data['portfolio']]
-        print('/nModified data:/n',data)
 
         # Create a form to edit an existing Transaction
         transactionForm = TransactionForm(data=data, instance=tx, request=request, portfolio=portfolio_ids)
@@ -364,22 +345,18 @@ def tx(request, tx_id):
             # save the many-to-many data for the form
             transactionForm.save_m2m()
 
-            print("form is valid")
             return HttpResponse(status=204)
         else:
-            print("form is invalid")
-            print('formErrors:',transactionForm.errors.as_json())
             return JsonResponse({
                 'success' : False,
                 'error' : transactionForm.errors.as_json(),
                 }, status=400)
 
     elif request.method == "POST":
-        print('tx:',tx)
         tx.delete()
         return HttpResponse(status=204)
 
-    # Transaction must be via GET or PUT or POST
+    # Transaction query must be via GET or PUT or POST
     else:
         return JsonResponse({
             "error": "GET or PUT or POST request required."
@@ -392,7 +369,7 @@ def txs(request):
     try:
         txs = Transaction.objects.filter(user=request.user)
     except txs.DoesNotExist:
-        return JsonResponse({"error": "no txs found."}, status=404)
+        return JsonResponse({"error": "No txs found."}, status=404)
 
     # Return every transaction contents
     if request.method == "GET":
@@ -415,12 +392,11 @@ def txs_data(request, portfolio_id):
     try:
         txs = Transaction.objects.filter(user=request.user, portfolio=Portfolio.objects.get(user=request.user, pk=portfolio_id))
     except txs.DoesNotExist:
-        return JsonResponse({"error": "no txs found."}, status=404)
+        return JsonResponse({"error": "No txs found."}, status=404)
 
     # Return every transaction contents for queried portfolio
     if request.method == "GET":
         # Return transactions in reverse chronologial order
-        #txs = txs.order_by("-created_on").all()
         if len(txs) == 0:
             return JsonResponse({
             "error": "No txs available."

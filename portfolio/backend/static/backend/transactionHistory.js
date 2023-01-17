@@ -17,7 +17,7 @@ function TxHistory() {
     const [portfolios, setPortfolios] = React.useState([]);
     const [txs, setTxs] = React.useState([]);
     const [fetchState, setFetchState] = React.useState(null);
-    //const txsintervalRef = React.useRef(null);
+    const [txsError, setTxsError] = React.useState(null);
 
     React.useEffect(() => {
         update_txs();
@@ -43,17 +43,17 @@ function TxHistory() {
     }, []);
 
     const update_txs = async () => {
-
         const callbackPortfs = await getPortfolios();
         setPortfolios(callbackPortfs());
 
         const callbackTxs = await getAllTxs();
-
-        // Retrieve the queried txs sortTxs(activeSort, structuredClone(txs));
-        const txsData_sortByDate = sortTxs(['date', false], structuredClone(callbackTxs()));
-        //console.log('sorted data:', txsData_sortByDate);
-        setTxs(txsData_sortByDate);
-        //console.log('initial txs:', txsData_sortByDate);
+        if (callbackTxs() !== null) {
+            // Retrieve the queried txs sortTxs(activeSort, structuredClone(txs));
+            const txsData_sortByDate = sortTxs(['date', false], structuredClone(callbackTxs()));
+            //console.log('sorted data:', txsData_sortByDate);
+            setTxs(txsData_sortByDate);
+            //console.log('initial txs:', txsData_sortByDate);
+        }
     }
 
     const getPortfolios = async () => {
@@ -82,11 +82,16 @@ function TxHistory() {
             const response = await fetch('/txs');
             console.log(`fetching /txs...`, 'status:', response.status);
 
-
             const data = await response.json();
             setFetchState(response.status);
-
-            //setTxs(data);
+            if (response.status !== 200) {
+                setTxsError(data.error);
+                // Return null if the response is an error
+                return () => {
+                    ignore = true;
+                    return null;
+                };
+            }
             console.log('Fetched data:', data);
 
             return () => {
@@ -208,8 +213,116 @@ function TxHistory() {
         setActiveSort([id, !activeSort[1]]);
     };
 
+    const updateTx = async (id) => {
+        let ignore = false;
+
+        //console.log('portfolioId', document.getElementById('id_portfolio' + id).options[0].selected);
+        if (!ignore) {
+            // Get list of portfolio's id
+            const portf_opts = document.getElementById('id_portfolio' + id).options;
+            let portf_ids = [];
+            for (let portf of portf_opts) {
+                if (portf.selected) {
+                    portf_ids.push(portf.value);
+                }
+            }
+            // Format the date
+            let unformattedDate = document.getElementById('id_created_on' + id).value.split(' ');
+            console.log(portf_ids);
+            let tx = {
+                type: document.getElementById('id_type' + id),
+                symbol_id: document.getElementById('id_symbol_id' + id),
+                bought_at: document.getElementById('id_bought_at' + id),
+                quantity: document.getElementById('id_quantity' + id),
+                tx_id: document.getElementById('id_tx_id' + id),
+                portfolio: portf_ids,
+                comment: document.getElementById('id_comment' + id),
+                created_on: unformattedDate[0] + 'T' + unformattedDate[1]
+            };
+            console.log(tx);
+            let response = await fetch(`/tx/${parseInt(id)}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    type: tx.type.value,
+                    symbol_id: tx.symbol_id.value,
+                    bought_at: tx.bought_at.value,
+                    quantity: tx.quantity.value,
+                    tx_id: tx.tx_id.value,
+                    portfolio: tx.portfolio,
+                    comment: tx.comment.value,
+                    created_on: tx.created_on
+                })
+            });
+            // Get the response status
+            const responseStatus = response.status;
+            if (responseStatus !== 204) {
+                // Parse the JSON response
+                response = await response.json();
+                //const res = JSON.parse(response.error);
+                //console.log('res:', typeof res, res, res.tx_id);
+                const errors = JSON.parse(response.error);
+                //console.log('keys', Object.keys(errors.quantity[0]), typeof errors.quantity[0].message);
+
+                (() => {
+                    'use strict'
+
+                    // Fetch the form we want to apply custom Bootstrap validation styles to
+                    const form = document.getElementById("editForm" + id);
+
+                    console.log('errors:', errors);
+                    for (let key in errors) {
+                        console.log('iterate:', key, 'message:', errors[key][0].message);
+                        // Add errors to the form, HTML5 custom errors are suppressed by 'novalidate'
+                        document.getElementById('id_' + key + id).setCustomValidity('Initiate to alert custom errors.');
+                        // Add the error message to the div 'invalid-feedback'
+                        document.querySelector('#id_' + key + id + " + label + .invalid-feedback").innerHTML = errors[key][0].message;
+                        console.log(document.querySelector('#id_' + key + id + " + label + .invalid-feedback"));
+                    }
+                    // Initiate the bootstrap form validation
+                    form.classList.add('was-validated');
+                })();
+            }
+            // Hide the modal if the tx is updated successfully
+            $('#editModal' + id).modal('hide');
+            update_txs();
+
+        }
+
+        return () => {
+            ignore = true;
+        }
+    }
+    const removeTx = async (id) => {
+        let ignore = false;
+
+        if (!ignore) {
+            let response = await fetch(`/tx/${parseInt(id)}`, {
+                method: 'POST',
+            })
+            // Get the response status
+            const responseStatus = response.status;
+            if (responseStatus !== 204) {
+                const data = await response.json();
+                setTxsError(data.error);
+            }
+            // Hide the modal if the tx is updated successfully
+            $('#deleteModal' + id).modal('hide');
+            update_txs();
+        }
+
+        return () => {
+            ignore = true;
+        }
+    }
+
     return (
-        <>
+        <div className="container-fluid">
+            {txsError === null ? null : (
+                <div className="queryAlert alert alert-danger d-flex align-items-center justify-content-between p-2" role="alert" style={{ fontSize: 15 }}>
+                    <div><i className="bi bi-exclamation-triangle me-1"></i> {txsError}</div>
+                    <button type="button" className="btn-close btn-sm ms-1 pe-3" aria-label="Close" onClick={() => { document.querySelector('.queryAlert').style.setProperty("display", "none", "important"); }}></button>
+                </div>)
+            }
             <div className="container mb-4">
                 <h2>Transaction History</h2>
             </div>
@@ -274,7 +387,7 @@ function TxHistory() {
                         )}
                     </a>
                     {/*--Coin--*/}
-                    <a href="#" className="col-2 col-md-1 no-underline" onClick={() => handleClick("coin")}>
+                    <a href="#" className="col-2 col-md-1 text-start no-underline" onClick={() => handleClick("coin")}>
                         Coin
                         {activeSort[1] === true ? (
                             <svg
@@ -377,119 +490,16 @@ function TxHistory() {
                     fetchState === null ? (
                         <small className="row mx-auto text-secondary">Loading...</small>
                     ) : fetchState === 200 ? (
-                        <Transaction txs={txs} portfolios={portfolios} update_txs={update_txs} />
-                    ) : (
-                        <small className="row mx-auto text-danger">Failed to fetch data from Server.</small>
-                    )
+                        <Transaction txs={txs} portfolios={portfolios} update_txs={update_txs} updateTx={updateTx} removeTx={removeTx} />
+                    ) : null
                 }
             </div>
-        </>
+        </div>
     )
 }
 
-function Transaction({ txs, portfolios, update_txs }) {
-    console.log('txs', txs);
-    const updateTx = async (id) => {
-        let ignore = false;
+function Transaction({ txs, portfolios, update_txs, updateTx, removeTx }) {
 
-        //console.log('portfolioId', document.getElementById('id_portfolio' + id).options[0].selected);
-        if (!ignore) {
-            // Get list of portfolio's id
-            const portf_opts = document.getElementById('id_portfolio' + id).options;
-            let portf_ids = [];
-            for (let portf of portf_opts) {
-                if (portf.selected) {
-                    portf_ids.push(portf.value);
-                }
-            }
-            // Format the date
-            let unformattedDate = document.getElementById('id_created_on' + id).value.split(' ');
-            console.log(portf_ids);
-            let tx = {
-                type: document.getElementById('id_type' + id),
-                symbol_id: document.getElementById('id_symbol_id' + id),
-                bought_at: document.getElementById('id_bought_at' + id),
-                quantity: document.getElementById('id_quantity' + id),
-                tx_id: document.getElementById('id_tx_id' + id),
-                portfolio: portf_ids,
-                comment: document.getElementById('id_comment' + id),
-                created_on: unformattedDate[0] + 'T' + unformattedDate[1]
-            };
-            console.log(tx);
-            let response = await fetch(`/tx/${parseInt(id)}`, {
-                method: 'PUT',
-                body: JSON.stringify({
-                    type: tx.type.value,
-                    symbol_id: tx.symbol_id.value,
-                    bought_at: tx.bought_at.value,
-                    quantity: tx.quantity.value,
-                    tx_id: tx.tx_id.value,
-                    portfolio: tx.portfolio,
-                    comment: tx.comment.value,
-                    created_on: tx.created_on
-                })
-            });
-            // Get the response status
-            const responseStatus = response.status;
-            if (responseStatus !== 204) {
-                // Parse the JSON response
-                response = await response.json();
-                //const res = JSON.parse(response.error);
-                //console.log('res:', typeof res, res, res.tx_id);
-                const errors = JSON.parse(response.error);
-                //console.log('keys', Object.keys(errors.quantity[0]), typeof errors.quantity[0].message);
-
-                (() => {
-                    'use strict'
-
-                    // Fetch the form we want to apply custom Bootstrap validation styles to
-                    const form = document.getElementById("editForm" + id);
-
-                    console.log('errors:', errors);
-                    for (let key in errors) {
-                        console.log('iterate:', key, 'message:', errors[key][0].message);
-                        // Add errors to the form, HTML5 custom errors are suppressed by 'novalidate'
-                        document.getElementById('id_' + key + id).setCustomValidity('Initiate to alert custom errors.');
-                        // Add the error message to the div 'invalid-feedback'
-                        document.querySelector('#id_' + key + id + " + label + .invalid-feedback").innerHTML = errors[key][0].message;
-                        console.log(document.querySelector('#id_' + key + id + " + label + .invalid-feedback"));
-                    }
-                    // Initiate the bootstrap form validation
-                    form.classList.add('was-validated');
-                })();
-            } else {
-                // Hide the modal if the tx is updated successfully
-                $('#editModal' + id).modal('hide');
-                update_txs();
-            }
-        }
-
-        return () => {
-            ignore = true;
-        }
-    }
-    const removeTx = async (id) => {
-        let ignore = false;
-
-        if (!ignore) {
-            let response = await fetch(`/tx/${parseInt(id)}`, {
-                method: 'POST',
-            })
-            // Get the response status
-            const responseStatus = response.status;
-            if (responseStatus !== 204) {
-                // Unimplemented
-            } else {
-                // Hide the modal if the tx is updated successfully
-                $('#deleteModal' + id).modal('hide');
-                update_txs();
-            }
-        }
-
-        return () => {
-            ignore = true;
-        }
-    }
     return (
         <>
             {
@@ -498,7 +508,7 @@ function Transaction({ txs, portfolios, update_txs }) {
                         <div className="d-none d-md-grid col-1 pe-5">{index + 1}</div>
                         <div className="col-4 col-sm-4 col-sm-3 col-md-2 text-start text-truncate">{tx.created_on.replace(/T/, ' ')}</div>
                         <div className="col-1 text-center">{tx.type}</div>
-                        <div className="col-2 col-md-1 text-truncate">{tx.symbol}</div>
+                        <div className="col-2 col-md-1 text-start text-truncate">{tx.symbol}</div>
                         <div className="col-3 col-xs-2 col-md-2 col-xxl-1 text-truncate"><div className="row row-cols-2 justify-content-between">
                             <div className="col-2 ps-lg-5 ps-xxl-1">$</div><div className="col-8 col-sm-auto">{tx.bought_at === null ? '-' : formatPrice(tx.bought_at.toFixed(2))}</div>
                         </div></div>
@@ -506,11 +516,11 @@ function Transaction({ txs, portfolios, update_txs }) {
                         <div className="d-none d-md-grid col-3 col-lg-2 text-truncate">{tx.portfolio.length > 1 ? (tx.portfolio.map(portf => portf.name).join(', ')) : (tx.portfolio[0].name)}</div>
                         <div className="d-none d-lg-grid col-2 col-md-1 col-xxl-2 text-center text-truncate">{tx.comment}</div>
                         <div className="col-3 col-xs-2 col-md-1 d-flex flex-row flex-md-column flex-lg-row justify-content-around">
-                            <button type="button" className="btn btn-sm btn-primary" value={tx.id} data-bs-toggle="modal" data-bs-target={"#editModal" + tx.id} onClick={update_txs}>
+                            <button type="button" className="btn btn-sm btn-primary btn-floating me-1" value={tx.id} data-bs-toggle="modal" data-bs-target={"#editModal" + tx.id} onClick={update_txs}>
                                 <svg
                                     xmlns="http://www.w3.org/2000/svg"
-                                    width={16}
-                                    height={16}
+                                    width={14}
+                                    height={14}
                                     fill="currentColor"
                                     className="bi bi-pencil-square"
                                     viewBox="0 0 16 16"
@@ -534,13 +544,6 @@ function Transaction({ txs, portfolios, update_txs }) {
                                         </div>
                                         <div className="modal-body text-start">
                                             <form id={"editForm" + tx.id} className="row g-3" noValidate>
-                                                {/*<div className="col-12 " id={"__all__" + tx.id} >
-                                                    <div className="valid-form_message mb-1">
-                                                        Updated!
-                                                    </div>
-                                                    <div className="invalid-form_message"></div>
-                                                </div>*/}
-
                                                 {/* --Action-- */}
                                                 <div className="col-12 form-floating">
                                                     <select className="form-select form-select-sm" id={"id_type" + tx.id} defaultValue={tx.type} aria-label="Floating label select example">
@@ -629,11 +632,11 @@ function Transaction({ txs, portfolios, update_txs }) {
                                 </div>
                             </div>
 
-                            <button type="button" className="btn btn-sm btn-danger" value={tx.id} data-bs-toggle="modal" data-bs-target={"#deleteModal" + tx.id}>
+                            <button type="button" className="btn btn-sm btn-danger btn-floating" value={tx.id} data-bs-toggle="modal" data-bs-target={"#deleteModal" + tx.id}>
                                 <svg
                                     xmlns="http://www.w3.org/2000/svg"
-                                    width={16}
-                                    height={16}
+                                    width={14}
+                                    height={14}
                                     fill="currentColor"
                                     className="bi bi-trash"
                                     viewBox="0 0 16 16"

@@ -35,8 +35,10 @@
     {% endif %}
 
     <div class="row lh-1 mb-3">
-        <div class="mb-3">
-            <img src="{{user.profile_image.url}}" class="profileImage img-fluid" alt="Profile Image">
+        <div class="mb-3 card card-body">
+            <div>
+                <img src="{{user.profile_image.url}}" class="profileImage img-fluid" alt="Profile Image">
+            </div>
         </div>
         <div class="d-flex flex-row justify-content-start mb-2 px-1">
             <label for="{{ registerForm.profile_image.id_for_label }}" class="">{{ registerForm.profile_image.label }}</label>
@@ -78,7 +80,7 @@
         {% endif %}
     </div>
 
-    <div class="row lh-1 mb-5">
+    <div class="row lh-1 mb-4">
         <div class="d-flex flex-row justify-content-start mb-2 px-1">
             <label for="{{ registerForm.email.id_for_label }}" class="">{{ registerForm.email.label }}</label>
         </div>
@@ -97,7 +99,7 @@
         {% render_field registerForm.email value=user.email class="form-control" %}
         {% endif %}
     </div>
-    <div class="row lh-1 mb-3">
+    <div class="col-12 lh-1 mb-3">
         <input class="btn btn-primary" name="action" type="submit" value="Update">
     </div>
 

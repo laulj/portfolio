@@ -33,25 +33,26 @@ function Dashboard() {
 
 function Portfolio() {
     const [portfolios, setPortfolios] = React.useState([]);
+    const [generalError, setGeneralError] = React.useState(null);
     //const [fetchState, setFetchState] = React.useState(null);
 
     React.useEffect(() => {
         // Load user's portfolio on the first mount
-        getPortfolios();
+        getPortfolios()
+            .catch(err => setGeneralError(err));
     }, [])
 
     const getPortfolios = async () => {
         let ignore = false;
-        //setFetchState('loading');
+
         // Wait for response
         const response = await fetch('/portfolio');
 
         if (!ignore) {
             console.log('status:', response.status);
-            //setFetchState(response.status);
 
             const data = await response.json();
-
+            console.log('portfolios:', data);
             setPortfolios(data);
             setActivePortfolio(data[0].id);
         }
@@ -67,6 +68,7 @@ function Portfolio() {
 
     const [activePortfolio, setActivePortfolio] = React.useState(null);
     const [portfolioAsset, setPortfolioAsset] = React.useState([]);
+    const [txsError, setTxsError] = React.useState(null);
     const txsintervalRef = React.useRef(null);
     const handleChartDisplay = async () => {
         // Fetch new chart data
@@ -85,7 +87,7 @@ function Portfolio() {
                     getPortfolioChartData(newTxs);
                 }
             })
-            .catch(err => console.log('err', err));
+            .catch(err => { console.log('err', err); setTxsError(err); });
     }
 
     React.useEffect(() => {
@@ -107,24 +109,22 @@ function Portfolio() {
                     getAssets(newTxs)
                         .catch(err => console.log('err:', err));
                     getPortfolioChartData(newTxs)
-                        .catch(err => console.log('err:', err));
 
                     // Query for user's assets detail per 60s interval
                     txsintervalRef.current = setInterval(() => {
-                        //console.log('Interval - 228, ActivePortfolio:', activePortfolio);
                         console.log('charData:', chartData);
                         getTxs()
                             .then(newTxs => {
                                 if (newTxs !== null) {
                                     getAssets(newTxs)
-                                        .catch(err => console.log('err:', err));
+                                        .catch(err => { console.log('err', err); setTxsError(err); });
                                 }
                             });
                     }, 60000);
                 }
                 return () => clearInterval(txsintervalRef.current);
             })
-            .catch(err => console.log('err', err));
+            .catch(err => { console.log('err', err); setTxsError(err); });
 
     }, [activePortfolio])
 
@@ -187,9 +187,12 @@ function Portfolio() {
             const data = await response.json();
             console.log(`Queried txs for portfolio ${activePortfolio}:`, data);
             if (response.status !== 200) {
+                setTxsError(data.error);
                 return null;
+            } else {
+                setTxsError(null);
+                return data;
             }
-            return data;
         }
         //setFetchState(response.status);
 
@@ -209,7 +212,6 @@ function Portfolio() {
         const response = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&&ids=${ids_string}&order=market_cap_desc&sparkline=false&price_change_percentage=24h%2C7d`, { method: 'GET' });
 
         const data = await response.json();
-        //console.log(`Queried txs for portfolio ${ids}:`, data);
 
         return data;
     }
@@ -251,7 +253,7 @@ function Portfolio() {
             });
             // Waiting for promises to resolve
             let latestAssetsValue_inMS = await Promise.all(promises);
-            if (latestAssetsValue_inMS === null) { return null; }
+            if (latestAssetsValue_inMS[0].uKline === null) { return null; }
             let net_worth = 0;
             let asset_list = [];
 
@@ -436,6 +438,32 @@ function Portfolio() {
         return temp_asset;
     }
 
+    // Remove portfolio handler
+    const removePortfolio = async (id) => {
+        let ignore = false;
+
+        if (!ignore) {
+            let response = await fetch(`/portfolio/${parseInt(id)}`, {
+                method: 'POST',
+            })
+            // Get the response status
+            console.log('response:', response);
+            const responseStatus = response.status;
+            if (responseStatus !== 204) {
+                const data = await response.json();
+                setGeneralError(data.error);
+            }
+            // Hide the modal
+            $('#deletePortfolioModal' + id).modal('hide');
+            getPortfolios();
+
+        }
+
+        return () => {
+            ignore = true;
+        }
+    };
+
     // Pagination state
     const [pageNum, setPageNum] = React.useState(1);
     // Update the css properties of page-link once the page state changes
@@ -489,7 +517,7 @@ function Portfolio() {
                 .then(newTxs => {
                     if (newTxs !== null) {
                         getPortfolioChartData(newTxs)
-                            .catch(err => console.log('err:', err));
+                            .catch(err => setGeneralError(err));
                     }
                 });
         }
@@ -501,37 +529,18 @@ function Portfolio() {
     let total_cost = 0;
     let prev_networth = 0;
     let networth = 0;
-    portfolioAsset.map(asset => {
-        total_pnl += asset.pnl * asset.average_cost;
-        total_cost += asset.average_cost;
-        asset.prev_price !== null ? (prev_networth += parseFloat(asset.quantity * asset.prev_price)) : (prev_networth += 0);
-        networth += parseFloat(asset.quantity * asset.current_price);
-    });
-    total_pnl /= total_cost;
+    // Account for portfolio with empty transactions
+    if (txsError === null) {
+        portfolioAsset.map(asset => {
+            total_pnl += asset.pnl * asset.average_cost;
+            total_cost += asset.average_cost;
+            asset.prev_price !== null ? (prev_networth += parseFloat(asset.quantity * asset.prev_price)) : (prev_networth += 0);
+            networth += parseFloat(asset.quantity * asset.current_price);
+        });
+        total_pnl /= total_cost;
+    }
 
-    const removePortfolio = async (id) => {
-        let ignore = false;
-
-        if (!ignore) {
-            let response = await fetch(`/portfolio/${parseInt(id)}`, {
-                method: 'POST',
-            })
-            // Get the response status
-            console.log('response:', response);
-            const responseStatus = response.status;
-            if (responseStatus !== 204) {
-                // Unimplemented
-            } else {
-                // Hide the modal if the tx is updated successfully
-                $('#deletePortfolioModal' + id).modal('hide');
-                getPortfolios();
-            }
-        }
-
-        return () => {
-            ignore = true;
-        }
-    };
+    // -------ReactSpring Animations-------
     const [chartDisplayState, setChartDisplayState] = React.useState(true);
     const { fadeIn } = ReactSpring.useSpring({
         from: { fadeIn: 0 },
@@ -554,6 +563,7 @@ function Portfolio() {
             },
         });
     };
+    // Portfolio asset content i.e. price refresh animation
     const [animateState, setAnimateState] = React.useState(true);
     const { refreshAnimation } = ReactSpring.useSpring({
         from: { refreshAnimation: 0 },
@@ -566,6 +576,12 @@ function Portfolio() {
         <>
             <div className="container-fluid">
                 <div className="d-flex flex-column justify-content-around">
+                    {generalError === null ? null : (
+                        <div className="queryAlert alert alert-danger d-flex align-items-center justify-content-between p-2" role="alert" style={{ fontSize: 15 }}>
+                            <div><i className="bi bi-exclamation-triangle me-1"></i> {generalError}</div>
+                            <button type="button" className="btn-close btn-sm ms-1 pe-3" aria-label="Close" onClick={() => { document.querySelector('.queryAlert').style.setProperty("display", "none", "important"); }}></button>
+                        </div>)
+                    }
                     <div className="d-flex flex-row justify-content-start mb-2">
                         <button id="chartDisplayButton" className="btn btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePortfolioChart" aria-expanded="true" aria-controls="collapsePortfolioChart" onClick={() => handleChartDisplay()}>
                             Chart
@@ -585,13 +601,13 @@ function Portfolio() {
                         <div className="card card-body p-1">
                             <div className="d-flex justify-content-start mb-3">
                                 {isLoading && uiKlinesFetchState === null ? (
-                                    <button className="btn btn-sm btn-outline-primary p-1" type="button" disabled style={{ fontSize: 12 }}>
+                                    <button className="btn btn-sm btn-outline-warning p-1" type="button" disabled style={{ fontSize: 12 }}>
                                         <span className="spinner-grow spinner-grow-sm me-1" role="status" aria-hidden="true" style={{ height: '0.75rem', width: '0.75rem' }}></span>
                                         Loading...
                                     </button>
                                 ) : (uiKlinesFetchState === 'failed' ? (
-                                    <div className="chartAlert alert alert-danger d-flex align-items-center p-2" role="alert" style={{ fontSize: 13 }}>
-                                        <i className="bi bi-exclamation-triangle me-1"></i> Couldn't load chart data from binance API, is your IP blocked from accessing binance.com?
+                                    <div className="chartAlert alert alert-danger d-flex align-items-center justify-content-between p-2" role="alert" style={{ fontSize: 13 }}>
+                                        <div><i className="bi bi-exclamation-triangle me-1"></i> Couldn't load chart data from binance API, is your IP address blocked from accessing binance.com?</div>
                                         <button type="button" className="btn-close btn-sm ms-1" aria-label="Close" onClick={() => { document.querySelector('.chartAlert').style.setProperty("display", "none", "important"); }}></button>
                                     </div>) : null)
                                 }
@@ -602,7 +618,7 @@ function Portfolio() {
                                 <div className="lw-attribution">
                                     <a href="https://tradingview.github.io/lightweight-charts/">Powered by Lightweight Charts</a>
                                 </div>
-                                {isLoading && uiKlinesFetchState === null ? (
+                                {txsError !== null || (isLoading && uiKlinesFetchState === null) ? (
                                     <div style={{ position: "absolute", left: "50%", top: "35%", zIndex: 3 }}>
                                         <span className="spinner-border text-primary" role="status" aria-hidden="true" style={{ height: '3rem', width: '3rem' }}></span>
                                     </div>) : null
@@ -618,11 +634,11 @@ function Portfolio() {
                             <div className="d-flex flex-row justify-content-start me-3 mb-3">
                                 <div className="btn-outline-primary d-flex flex-column flex-md-row align-items-center portfolio_total_pnl p-3 me-3" style={{ fontSize: "1em" }}>
                                     <span className="fw-semibold me-3">Total PNL: </span>
-                                    <ReactSpring.animated.span className={parseFloat(total_pnl) > parseFloat(0) ? "text-success" : parseFloat(total_pnl) === parseFloat(0) ? "" : "text-danger"} style={{
+                                    <ReactSpring.animated.span className={parseFloat(total_pnl) > parseFloat(0) ? "text-success" : parseFloat(total_pnl) < parseFloat(0) ? "text-danger" : ""} style={{
                                         opacity: refreshAnimation.to({ range: [0, 0.5, 1], output: [1, 0.3, 1] }),
                                         color: refreshAnimation.to({ range: [0, 0.5, 1], output: ['black', networth > prev_networth ? 'green' : (networth < prev_networth ? 'red' : 'black'), 'black'] }),
                                     }}>
-                                        {total_pnl.toFixed(2) + '%'}
+                                        {total_pnl === 0 ? total_pnl + '%' : total_pnl.toFixed(2) + '%'}
                                     </ReactSpring.animated.span>
                                 </div>
                                 <div className="btn-outline-primary d-flex flex-column flex-md-row align-items-center portfolio_total_pnl p-3" style={{ fontSize: "1em" }}>
@@ -711,8 +727,9 @@ function Portfolio() {
                                     <div className="col-6 col-xs-5 col-md-3 col-lg-2">Holding</div>
                                     <div className="col-3 col-xs-4 col-sm-3 col-md-2 col-lg-2 col-xl-2">PNL</div>
                                 </div>
-
-                                <Asset portfolioAsset={portfolioAsset} assetPerPage={assetPerPage} pageNum={pageNum} refreshAnimation={refreshAnimation} />
+                                {txsError !== null ? (<div className="row ticker-header text-secondary text-end ps-5" style={{ fontSize: 13 }}>Please add some transactions.</div>) : (
+                                    <Asset portfolioAsset={portfolioAsset} assetPerPage={assetPerPage} pageNum={pageNum} refreshAnimation={refreshAnimation} />)
+                                }
                             </div>
                             <nav aria-label="..." style={{ paddingTop: 15 }}>
                                 <ul className="pagination pagination-sm justify-content-center">

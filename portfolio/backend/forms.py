@@ -1,8 +1,9 @@
-import requests
-
+import requests, datetime
+from bootstrap_datepicker_plus.widgets import DateTimePickerInput
 from django import forms
 #from django.db import models
 #from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from .models import User, Portfolio, Transaction
@@ -54,11 +55,6 @@ def Symbol_validator(symbol):
                 print(f'SYMBOL_VALIDATOR: FOUND:{coin}, return {coin["symbol"]}')
                 return coin["symbol"]
     print('symbol not found', symbol, symbol_list)
-    '''# Symbol not found
-    raise ValidationError(
-        _("%(symbol)s is not a valid symbol on Coingecko."),
-        params={"symbol": symbol},
-    )'''
 
 class CustomUserChangeForm(forms.ModelForm):
     class Meta:
@@ -67,19 +63,27 @@ class CustomUserChangeForm(forms.ModelForm):
         localized_fields = "__all__"
         
 class TransactionForm(forms.ModelForm):
+
+
+    #portfolio = forms.ModelMultipleChoiceField(queryset=Portfolio.objects.filter(user=self.request.user),widget=forms.SelectMultiple)
+    
     class Meta:
         model = Transaction
         exclude = ["user","symbol"]
         localized_fields = "__all__"
-        # widgets = {"portfolio": forms.CheckboxSelectMultiple}
+        widgets = {
+            "created_on": DateTimePickerInput(),
+        }
 
     def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop("request") # store value of request
         try:
-            self.request = kwargs.pop("request") # store value of request
             self.portfolio = kwargs.pop("portfolio") # store value of portfolio
         except KeyError:
             print(f'POP request: failed')      
         super().__init__(*args, **kwargs)
+        self.fields['portfolio'].queryset = Portfolio.objects.filter(user=self.request.user)
+
     
     def clean_symbol(self):
         data = self.cleaned_data.get("symbol")
@@ -91,19 +95,30 @@ class TransactionForm(forms.ModelForm):
 
     def clean_symbol_id(self):
         data = self.cleaned_data.get("symbol_id")
-        #print('symbol_id:', data)
         validated_data = Id_validator(data)
 
         # Always return a value to use as the new cleaned data, even if
         # this method didn't change it.
         return validated_data
 
+    def clean_created_on(self):
+        data = self.cleaned_data.get("created_on")
+        print('date:', data)
+        print('today:', timezone.now())
+
+        if data > timezone.now():
+            self.add_error('created_on', _(f"The entered date {data} is in the future."))
+
+        # Always return a value to use as the new cleaned data, even if
+        # this method didn't change it.
+        return data
+
     def clean(self):
         cleaned_data = super().clean()
         type = cleaned_data.get("type")
         quantity = cleaned_data.get("quantity")
         symbol_id = cleaned_data.get("symbol_id")
-
+        print('self.portfolio:', self.portfolio)
         try:
             print('instance:',self.instance)
         except ObjectDoesNotExist:
@@ -127,17 +142,9 @@ class TransactionForm(forms.ModelForm):
                     if available_quantity < quantity:
                         #print(f'avail: {available_quantity}, to sell: {quantity} not enough for selling')
                         self.add_error('quantity', _(f"You do not have enough {symbol_id} for selling."))
-                        '''raise ValidationError(
-                            _("You do not have enough %(symbol_id)s for selling."),
-                            params={"symbol_id": symbol_id},
-                        )'''
                 else:
                     #print(f'avail: {available_quantity}, to sell: {quantity} not enough for selling')
                     self.add_error('quantity', _(f"You do not have enough {symbol_id} for selling."))
-                    '''raise ValidationError(
-                        _("You do not have enough %(symbol_id)s for selling."),
-                        params={"symbol_id": symbol_id},
-                    )'''
         
         # Always return a value to use as the new cleaned data, even if
         # this method didn't change it.
