@@ -31,7 +31,6 @@ function TxHistory() {
             dropdownCssClass: 'select2--small',
             tokenSeparators: [',', ' '],
             debug: true,
-            //allowClear: true
         });
         // Trigger select-2 event when an option is selected and unselected
         $('.transactionFilter_portfolio').on('select2:select', (e) => {
@@ -48,11 +47,9 @@ function TxHistory() {
 
         const callbackTxs = await getAllTxs();
         if (callbackTxs() !== null) {
-            // Retrieve the queried txs sortTxs(activeSort, structuredClone(txs));
+            // Retrieve the queried txs and sort them by date in descending order
             const txsData_sortByDate = sortTxs(['date', false], structuredClone(callbackTxs()));
-            //console.log('sorted data:', txsData_sortByDate);
             setTxs(txsData_sortByDate);
-            //console.log('initial txs:', txsData_sortByDate);
         }
     }
 
@@ -63,12 +60,10 @@ function TxHistory() {
             // Wait for response
             const response = await fetch('/portfolio');
             const data = await response.json();
-            //console.log(data);
 
             return () => {
                 ignore = true;
                 return data;
-                //getTxs(data);
             };
         }
         return null;
@@ -80,7 +75,6 @@ function TxHistory() {
         if (!ignore) {
             // Wait for response
             const response = await fetch('/txs');
-            console.log(`fetching /txs...`, 'status:', response.status);
 
             const data = await response.json();
             setFetchState(response.status);
@@ -92,7 +86,6 @@ function TxHistory() {
                     return null;
                 };
             }
-            console.log('Fetched data:', data);
 
             return () => {
                 ignore = true;
@@ -105,15 +98,13 @@ function TxHistory() {
     const [activeSort, setActiveSort] = React.useState([null, true]);
 
     React.useEffect(() => {
-        console.log('activeSort:', activeSort, 'txs:', structuredClone(txs));
-        //console.log('port', portfolios);
+        // Sort txs by aspect, i.e. date, type, coin, price, and size
         const sortedTxs = sortTxs(activeSort, structuredClone(txs));
         setTxs(sortedTxs);
 
     }, [activeSort]);
 
     const sortTxs = ([id, asc], txs_data = null) => {
-        //console.log('id:', id, 'asc:', asc);
         const sortFunction = (a, b) => {
             // Sort by ascending order if asc is True
             return asc === true ? (a - b) : (b - a);
@@ -122,9 +113,6 @@ function TxHistory() {
         if (txs_data !== null) {
             let data = [];
             switch (id) {
-                /*case 'id':
-                    data = txs_data.sort((a, b) => { return sortFunction(a.id, b.id); });
-                    break;*/
                 case 'date':
                     data = txs_data.sort((a, b) => { return sortFunction(new Date(a.created_on), new Date(b.created_on)); });
                     break;
@@ -168,14 +156,12 @@ function TxHistory() {
                             portf_ids.push(parseInt(portf.value));
                         }
                     }
-                    console.log('portfolio id:', portf_ids);
                     data = txs_data.sort((a, b) => {
                         // Count the number of matches of portfolio by id
                         let a_matchCount = 0;
                         let b_matchCount = 0;
                         a.portfolio.map((portf) => {
                             portf_ids.map((id) => {
-                                //console.log('a portf and id:', typeof portf.id, typeof id, portf.id === id);
                                 // If the tx's portfolio id is in the filter
                                 if (portf.id === id) {
                                     a_matchCount += 1;
@@ -184,14 +170,12 @@ function TxHistory() {
                         })
                         b.portfolio.map((portf) => {
                             portf_ids.map((id) => {
-                                //console.log('b portf and id:', portf.id, id, portf.id === id);
                                 // If the tx's portfolio id is in the filter
                                 if (portf.id === id) {
                                     b_matchCount += 1;
                                 }
                             })
                         })
-                        //console.log('a:', a, 'b:', b, 'aCount:', a_matchCount, 'bCount:', b_matchCount);
                         // Sort the tx by highest matches of in the portfolio id
                         if (a_matchCount > 0 && a_matchCount > b_matchCount) {
                             return -1
@@ -204,7 +188,6 @@ function TxHistory() {
                     });
                     break;
             };
-            //console.log(data);
             return data;
         }
     };
@@ -216,7 +199,6 @@ function TxHistory() {
     const updateTx = async (id) => {
         let ignore = false;
 
-        //console.log('portfolioId', document.getElementById('id_portfolio' + id).options[0].selected);
         if (!ignore) {
             // Get list of portfolio's id
             const portf_opts = document.getElementById('id_portfolio' + id).options;
@@ -228,7 +210,6 @@ function TxHistory() {
             }
             // Format the date
             let unformattedDate = document.getElementById('id_created_on' + id).value.split(' ');
-            console.log(portf_ids);
             let tx = {
                 type: document.getElementById('id_type' + id),
                 symbol_id: document.getElementById('id_symbol_id' + id),
@@ -239,7 +220,6 @@ function TxHistory() {
                 comment: document.getElementById('id_comment' + id),
                 created_on: unformattedDate[0] + 'T' + unformattedDate[1]
             };
-            console.log(tx);
             let response = await fetch(`/tx/${parseInt(id)}`, {
                 method: 'PUT',
                 body: JSON.stringify({
@@ -258,10 +238,7 @@ function TxHistory() {
             if (responseStatus !== 204) {
                 // Parse the JSON response
                 response = await response.json();
-                //const res = JSON.parse(response.error);
-                //console.log('res:', typeof res, res, res.tx_id);
                 const errors = JSON.parse(response.error);
-                //console.log('keys', Object.keys(errors.quantity[0]), typeof errors.quantity[0].message);
 
                 (() => {
                     'use strict'
@@ -269,14 +246,11 @@ function TxHistory() {
                     // Fetch the form we want to apply custom Bootstrap validation styles to
                     const form = document.getElementById("editForm" + id);
 
-                    console.log('errors:', errors);
                     for (let key in errors) {
-                        console.log('iterate:', key, 'message:', errors[key][0].message);
                         // Add errors to the form, HTML5 custom errors are suppressed by 'novalidate'
                         document.getElementById('id_' + key + id).setCustomValidity('Initiate to alert custom errors.');
                         // Add the error message to the div 'invalid-feedback'
                         document.querySelector('#id_' + key + id + " + label + .invalid-feedback").innerHTML = errors[key][0].message;
-                        console.log(document.querySelector('#id_' + key + id + " + label + .invalid-feedback"));
                     }
                     // Initiate the bootstrap form validation
                     form.classList.add('was-validated');
@@ -307,6 +281,7 @@ function TxHistory() {
             }
             // Hide the modal if the tx is updated successfully
             $('#deleteModal' + id).modal('hide');
+            // Query for the latest txs
             update_txs();
         }
 
@@ -360,7 +335,7 @@ function TxHistory() {
                         )}
                     </a>
                     {/*--Type--*/}
-                    <a href="#" className="col-1 text-center text-truncate no-underline" onClick={() => handleClick("type")}>
+                    <a href="#" className="col-1 text-center no-underline" onClick={() => handleClick("type")}>
                         Type
                         {activeSort[1] === true ? (
                             <svg
@@ -414,7 +389,7 @@ function TxHistory() {
                         )}
                     </a>
                     {/*--Price--*/}
-                    <a href="#" className="col-3 col-xs-2 col-md-2 col-xxl-1 no-underline" onClick={() => handleClick(" price")}>
+                    <a href="#" className="col-3 col-xs-2 col-md-2 col-xxl-1 no-underline" onClick={() => handleClick("price")}>
                         Price
                         {activeSort[1] === true ? (
                             <svg

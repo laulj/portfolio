@@ -2,6 +2,7 @@ asgiref==3.6.0
 certifi==2022.12.7
 charset-normalizer==3.0.1
 Django==4.1.5
+django-bootstrap-datepicker-plus==5.0.3
 django-storages==1.13.2
 django-widget-tweaks==1.4.12
 idna==3.4
@@ -9,8 +10,10 @@ node==1.2
 odict==1.9.0
 Pillow==9.4.0
 plumber==1.7
+pydantic==1.10.4
 requests==2.28.2
 sqlparse==0.4.3
+typing_extensions==4.4.0
 urllib3==1.26.14
 zope.component==5.1.0
 zope.deferredimport==4.4

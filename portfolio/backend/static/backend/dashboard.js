@@ -34,7 +34,6 @@ function Dashboard() {
 function Portfolio() {
     const [portfolios, setPortfolios] = React.useState([]);
     const [generalError, setGeneralError] = React.useState(null);
-    //const [fetchState, setFetchState] = React.useState(null);
 
     React.useEffect(() => {
         // Load user's portfolio on the first mount
@@ -49,10 +48,7 @@ function Portfolio() {
         const response = await fetch('/portfolio');
 
         if (!ignore) {
-            console.log('status:', response.status);
-
             const data = await response.json();
-            console.log('portfolios:', data);
             setPortfolios(data);
             setActivePortfolio(data[0].id);
         }
@@ -82,12 +78,11 @@ function Portfolio() {
     const update_txs = async () => {
         getTxs()
             .then(newTxs => {
-                console.log('newTxs:', newTxs);
                 if (newTxs !== null) {
                     getPortfolioChartData(newTxs);
                 }
             })
-            .catch(err => { console.log('err', err); setTxsError(err); });
+            .catch(err => setTxsError(err));
     }
 
     React.useEffect(() => {
@@ -104,27 +99,24 @@ function Portfolio() {
 
         getTxs()
             .then(newTxs => {
-                console.log('newTxs:', newTxs);
                 if (newTxs !== null) {
-                    getAssets(newTxs)
-                        .catch(err => console.log('err:', err));
-                    getPortfolioChartData(newTxs)
+                    getAssets(newTxs);
+                    getPortfolioChartData(newTxs);
 
                     // Query for user's assets detail per 60s interval
                     txsintervalRef.current = setInterval(() => {
-                        console.log('charData:', chartData);
                         getTxs()
                             .then(newTxs => {
                                 if (newTxs !== null) {
                                     getAssets(newTxs)
-                                        .catch(err => { console.log('err', err); setTxsError(err); });
+                                        .catch(err => setTxsError(err));
                                 }
                             });
                     }, 60000);
                 }
                 return () => clearInterval(txsintervalRef.current);
             })
-            .catch(err => { console.log('err', err); setTxsError(err); });
+            .catch(err => setTxsError(err));
 
     }, [activePortfolio])
 
@@ -136,7 +128,6 @@ function Portfolio() {
     React.useEffect(() => {
         // To update the chart data without resizing the current chart
         if (chartUpdate !== null && areaSeriesRef !== null) {
-            console.log("update chart", chartUpdate);
             areaSeriesRef.current.update(chartUpdate);
         }
 
@@ -163,18 +154,15 @@ function Portfolio() {
             return null;
         }
 
-        //console.log('response', response);
         const data = await response.json();
 
         setIsLoading(false);
-        //console.log('binance history:', id, data);
         return data;
     }
 
     const getCurrentAveragePriceById = async (id) => {
         const response = await fetch(`https://api.binance.com/api/v3/avgPrice?symbol=${id}USDT`);
         const data = await response.json();
-        //console.log('binance current price:', id, data);
         return data.price;
     }
 
@@ -183,9 +171,7 @@ function Portfolio() {
         // Wait for response
         if (activePortfolio !== null && !ignore) {
             const response = await fetch(`/txs_data/${activePortfolio}`);
-            console.log(`fetching /txs_data/${activePortfolio}...`, 'status:', response.status);
             const data = await response.json();
-            console.log(`Queried txs for portfolio ${activePortfolio}:`, data);
             if (response.status !== 200) {
                 setTxsError(data.error);
                 return null;
@@ -194,7 +180,6 @@ function Portfolio() {
                 return data;
             }
         }
-        //setFetchState(response.status);
 
         // Return null if activePortfolio Hook is not set
         return null;
@@ -206,9 +191,6 @@ function Portfolio() {
         for (let id of ids) {
             ids_string += id + "%2C";
         }
-        //console.log('ids:', ids_string);
-        //const response = await fetch(`https://api.coingecko.com/api/v3/coins/${id}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false`);
-        //const response = await fetch(`https://api.binance.com/api/v3/avgPrice?symbol=${id}USDT`);
         const response = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&&ids=${ids_string}&order=market_cap_desc&sparkline=false&price_change_percentage=24h%2C7d`, { method: 'GET' });
 
         const data = await response.json();
@@ -237,7 +219,6 @@ function Portfolio() {
     // Construct portfolio chart data
     const getPortfolioChartData = async newTxs => {
         // Construct charData between the first portfolio txs and current from txs data and binance API
-        //console.log('In getPortfolioChartData: newTxs:', newTxs);
         if (chartData.length === 0) {
             // Identify unique asset from user's txs
             let symbols = new Set();
@@ -298,9 +279,6 @@ function Portfolio() {
             // Waiting for promises to resolve
             let res = await Promise.all(promises1);
 
-            //console.log('be4 res:', res);
-
-            //console.log('adding more chartdata...');
             const uKline_unixTimestamp_inMS = latestAssetsValue_inMS[0].uKline;
             // Adding new Chart Data by timestamps
             const promises2 = uKline_unixTimestamp_inMS.map(async (timestamp_inMS, index) => {
@@ -308,23 +286,18 @@ function Portfolio() {
                 // Determine the networth at that instance by finding the closest transaction before timestamp_inMS
                 const promises = res.map(async (portChartData, chartDataIndex) => {
                     let net_worth = 0;
-                    //console.log(`${index}:`, 'timestamp:', timestamp_inMS[0], 'vs', portChartData.time * 1000, timestamp_inMS[0] < portChartData.time * 1000);
                     // If timestamp_inMS[i] is < chartData[j].time, the networth of user's portfolio at that instance must be chartData[j - 1].time
                     if (timestamp_inMS[0] < res[res.length - chartDataIndex - 1].time * 1000 && chartDataIndex <= (res.length - 2)) {
                         const promises = res[res.length - chartDataIndex - 2].assets.map(async asset => {
                             const promises = latestAssetsValue_inMS.map(async AssetValue => {
-                                //console.log('comparing asset.symbol:', asset.symbol, 'to AssetValue.symbol:', AssetValue.symbol, asset.symbol === AssetValue.symbol);
                                 if (asset.symbol === AssetValue.symbol) {
-                                    //console.log(AssetValue.uKline[index][1], net_worth);
                                     net_worth += parseFloat(asset.quantity * AssetValue.uKline[index][1]);
-                                    //console.log('networth:', net_worth);
                                 }
                             });
                             await Promise.all(promises);
                         });
 
                         await Promise.all(promises);
-                        //console.log(net_worth);
 
                         return new portfolioChartData(timestamp_inMS[0] / 1000, structuredClone(res[res.length - chartDataIndex - 2].assets), net_worth);
                     }
@@ -332,11 +305,7 @@ function Portfolio() {
                 });
                 let new_chartData = await Promise.all(promises);
                 new_chartData = new_chartData.filter(data => data !== null);
-                //console.log('newchartdata', new_chartData);
                 if (new_chartData.length !== 0) {
-                    /*for (let chartData of new_chartData) {
-                        res.push(chartData);
-                    }*/
                     res.push(new_chartData[0]);
                 }
             });
@@ -356,17 +325,13 @@ function Portfolio() {
             });
             await Promise.all(promises3);
 
-            //console.log(new portfolioChartData((new Date()).getTime() / 1000, structuredClone(latest_assets), net_worth));
             res.push(new portfolioChartData((new Date()).getTime() / 1000, structuredClone(latest_assets), net_worth));
-
-            //console.log('after res:', res);
 
             setChartData(res);
             return res;
         } else {
             // Update the latest chart data only
             let net_worth = 0;
-            //console.log(chartData[chartData.length - 1]);
             const latest_assets = chartData[chartData.length - 1].assets;
             let portfolioAssetToUpdate = [...portfolioAsset];
             const promises = latest_assets.map(async asset => {
@@ -382,10 +347,8 @@ function Portfolio() {
                 // Update chart data
                 net_worth += asset.quantity * price;
             });
-            //console.log('newAsset:', portfolioAssetToUpdate);
             setPortfolioAsset(portfolioAssetToUpdate);
             await Promise.all(promises);
-            //console.log('portfolioasset:', portfolioAsset);
 
             setChartUpdate(new portfolioChartData((new Date()).getTime() / 1000, structuredClone(latest_assets), net_worth));
             setAnimateState(!animateState);
@@ -409,7 +372,6 @@ function Portfolio() {
 
         // Update the net user's asset quantity, ,average cost, pnl
         temp_asset.forEach(asset => {
-            //console.log('asset:', asset, 'tx.symbol:', tx.symbol, 'asset.id', asset.rank);
             for (let tx of newTxs) {
                 if (tx.symbol_id === asset.id) {
                     if (tx.type === 'B') {
@@ -422,7 +384,6 @@ function Portfolio() {
                 }
             }
             asset.average_cost /= asset.quantity;
-            //console.log('asset:', asset.id, 'asset current price:', asset.current_price, 'asset average cost:', asset.average_cost);
             asset.pnl = (asset.current_price - asset.average_cost) * 100 / asset.average_cost;
         })
 
@@ -433,7 +394,6 @@ function Portfolio() {
         temp_asset.map((asset, index) => {
             asset.index = index;
         });
-        console.log('tempasset:', temp_asset);
         setPortfolioAsset(temp_asset);
         return temp_asset;
     }
@@ -447,7 +407,6 @@ function Portfolio() {
                 method: 'POST',
             })
             // Get the response status
-            console.log('response:', response);
             const responseStatus = response.status;
             if (responseStatus !== 204) {
                 const data = await response.json();
@@ -468,7 +427,6 @@ function Portfolio() {
     const [pageNum, setPageNum] = React.useState(1);
     // Update the css properties of page-link once the page state changes
     const updatePagination = (num) => {
-        //console.log('num:', num);
         const pageElement = document.querySelector(`#page${num}`);
         const allpages = document.getElementsByClassName('page-item');
         // Disabled all link
@@ -481,18 +439,15 @@ function Portfolio() {
         // Disable the previous and next link accordingly
         if (parseInt(num) === 1) {
             // Enable 'next' and disable 'previous'
-            console.log('if');
             document.getElementsByClassName('previous')[0].classList.add('disabled');
             document.getElementsByClassName('next')[0].classList.add('active');
         }
         else if (parseInt(num) === (allpages.length - 2)) {
             // Enable 'previous' and disable 'next'
-            console.log('else if');
             document.getElementsByClassName('next')[0].classList.add('disabled');
             document.getElementsByClassName('previous')[0].classList.add('active');
         }
         else {
-            console.log('else');
             document.getElementsByClassName('previous')[0].classList.remove('disabled');
             document.getElementsByClassName('next')[0].classList.remove('disabled');
         }
@@ -511,7 +466,6 @@ function Portfolio() {
 
     // Update asset and chart data per 5s
     useInterval(() => {
-        //console.log('charData:', chartData);
         if (!isLoading && uiKlinesFetchState !== 'failed') {
             getTxs()
                 .then(newTxs => {
@@ -758,7 +712,6 @@ function Portfolio() {
 function ChartComponent({ data, lightWeightChartRef, areaSeriesRef }) {
     const chartContainerRef = React.useRef();
 
-    //console.log('areaSeriesRef', areaSeriesRef.current);
     React.useEffect(() => {
         const handleResize = () => {
             lightWeightChartRef.current.applyOptions({ width: document.getElementById("chart").clientWidth, height: document.getElementById("chart").clientHeight });
@@ -773,17 +726,13 @@ function ChartComponent({ data, lightWeightChartRef, areaSeriesRef }) {
                 timeVisible: true,
                 secondsVisible: false,
             },
-            //width: chartContainerRef.current.clientWidth,
             width: document.getElementById("chart").clientWidth,
             height: document.getElementById("chart").clientHeight,
         });
         lightWeightChartRef.current.timeScale().fitContent();
-        //chart.timeScale().setVisibleLogicalRange({ from: 0.0, to: 5.2 })
-        //const newSeries = chart.addAreaSeries({ lineColor, topColor: areaTopColor, bottomColor: areaBottomColor });
         areaSeriesRef.current = lightWeightChartRef.current.addAreaSeries({ lineColor: '#2962FF', topColor: '#2962FF', bottomColor: 'rgba(41, 98, 255, 0.28)', lastPriceAnimation: LightweightCharts.LastPriceAnimationMode.Continuous });
 
         areaSeriesRef.current.setData(data);
-        //console.log('areaSeriesRef after:', areaSeriesRef);
         window.addEventListener('resize', handleResize);
 
         return () => {

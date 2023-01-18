@@ -4,7 +4,6 @@ from django.contrib.auth.models import UserManager, PermissionsMixin
 from django.contrib.auth.validators import ASCIIUsernameValidator
 from django.core.validators import RegexValidator
 from django.core.mail import send_mail
-from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -123,7 +122,7 @@ class Portfolio(models.Model):
 
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="whose_portfolio"
+        User, on_delete=models.CASCADE, db_index=True, related_name="whose_portfolio"
     )
     name = models.CharField(
         _("title"),
@@ -161,7 +160,7 @@ class Transaction(models.Model):
 
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="whose_transaction"
+        User, on_delete=models.CASCADE, db_index= True, related_name="whose_transaction"
     )
     type = models.CharField(_("act"), max_length=8, choices=ACTION, default=BUY)
     symbol_id = models.CharField(

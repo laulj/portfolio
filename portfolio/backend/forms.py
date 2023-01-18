@@ -1,8 +1,7 @@
-import requests, datetime
+import requests
 from bootstrap_datepicker_plus.widgets import DateTimePickerInput
+
 from django import forms
-#from django.db import models
-#from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
@@ -19,7 +18,6 @@ def coingecko_symbols_lookup(symbol):
 
     # Parse response
     try:
-        #print(f"The symbol queried response: {response.json()}")
         return response.json()
     except (KeyError, TypeError, ValueError):
         return None
@@ -27,17 +25,13 @@ def coingecko_symbols_lookup(symbol):
 
 def Id_validator(id):
     """Validate the symbol respect to symbols listed on Coingecko."""
-    #print(f"The symbol requested is {symbol}")
     id_lowercase = id.lower()
     id_list = coingecko_symbols_lookup(id_lowercase)
     if id_list != None:
         for coin in id_list['coins']:
-            #print(f"Comparing symbol requested {symbol} with {coin['symbol']}")
-            print(f'comparing {id_lowercase} with {coin["symbol"].lower()}, {coin["id"].lower()}, {coin["name"].lower()}')  
             if coin["symbol"].lower() == id_lowercase or coin["id"].lower() == id_lowercase or coin["name"].lower() == id_lowercase:
-                print(f'ID_VALIDATOR: FOUND:{coin}, return {coin["id"]}')
                 return coin["id"]
-    print('symbol not found', id, id_list)
+
     # Id not found
     raise ValidationError(
         _("%(id)s is not a valid symbol on Coingecko."),
@@ -50,11 +44,8 @@ def Symbol_validator(symbol):
     symbol_list = coingecko_symbols_lookup(symbol_lowercase)
     if symbol_list != None:
         for coin in symbol_list['coins']:
-            print(f'comparing {symbol_lowercase} with {coin["symbol"].lower()}, {coin["id"].lower()}, {coin["name"].lower()}')  
             if coin["symbol"].lower() == symbol_lowercase or coin["id"].lower() == symbol_lowercase or coin["name"].lower() == symbol_lowercase:
-                print(f'SYMBOL_VALIDATOR: FOUND:{coin}, return {coin["symbol"]}')
                 return coin["symbol"]
-    print('symbol not found', symbol, symbol_list)
 
 class CustomUserChangeForm(forms.ModelForm):
     class Meta:
@@ -63,9 +54,6 @@ class CustomUserChangeForm(forms.ModelForm):
         localized_fields = "__all__"
         
 class TransactionForm(forms.ModelForm):
-
-
-    #portfolio = forms.ModelMultipleChoiceField(queryset=Portfolio.objects.filter(user=self.request.user),widget=forms.SelectMultiple)
     
     class Meta:
         model = Transaction
@@ -80,7 +68,7 @@ class TransactionForm(forms.ModelForm):
         try:
             self.portfolio = kwargs.pop("portfolio") # store value of portfolio
         except KeyError:
-            print(f'POP request: failed')      
+            pass
         super().__init__(*args, **kwargs)
         self.fields['portfolio'].queryset = Portfolio.objects.filter(user=self.request.user)
 
@@ -103,8 +91,6 @@ class TransactionForm(forms.ModelForm):
 
     def clean_created_on(self):
         data = self.cleaned_data.get("created_on")
-        print('date:', data)
-        print('today:', timezone.now())
 
         if data > timezone.now():
             self.add_error('created_on', _(f"The entered date {data} is in the future."))
@@ -118,12 +104,7 @@ class TransactionForm(forms.ModelForm):
         type = cleaned_data.get("type")
         quantity = cleaned_data.get("quantity")
         symbol_id = cleaned_data.get("symbol_id")
-        print('self.portfolio:', self.portfolio)
-        try:
-            print('instance:',self.instance)
-        except ObjectDoesNotExist:
-            print('INSTANCE DOES NOT EXISTs')
-        #print(f'portfolio: {self.portfolio}, type: {type}, symbol_id: {symbol_id}, quantity: {quantity}')
+
         if type == 'S':
             for portfolio_id in self.portfolio:
                 available_quantity = 0
@@ -132,7 +113,6 @@ class TransactionForm(forms.ModelForm):
                     txs = Transaction.objects.filter(user = self.request.user, symbol_id = symbol_id, portfolio = Portfolio.objects.get(pk=portfolio_id)).exclude(pk=self.instance.id)
                 except ObjectDoesNotExist:
                     txs = Transaction.objects.filter(user = self.request.user, symbol_id = symbol_id, portfolio = Portfolio.objects.get(pk=portfolio_id))
-                #print(f'txs:{txs}')
                 if len(txs) != 0:
                     for tx in txs:
                         if tx.type == 'B':
@@ -140,10 +120,8 @@ class TransactionForm(forms.ModelForm):
                         elif tx.type == 'S':
                             available_quantity -= tx.quantity
                     if available_quantity < quantity:
-                        #print(f'avail: {available_quantity}, to sell: {quantity} not enough for selling')
                         self.add_error('quantity', _(f"You do not have enough {symbol_id} for selling."))
                 else:
-                    #print(f'avail: {available_quantity}, to sell: {quantity} not enough for selling')
                     self.add_error('quantity', _(f"You do not have enough {symbol_id} for selling."))
         
         # Always return a value to use as the new cleaned data, even if

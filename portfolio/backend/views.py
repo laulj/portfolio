@@ -7,10 +7,6 @@ from django.contrib.auth import authenticate, login, logout, update_session_auth
 from django.contrib.auth.forms import (
     AuthenticationForm,
     PasswordChangeForm,
-    PasswordResetForm,
-    SetPasswordForm,
-    UserChangeForm,
-    UserCreationForm,
 )
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
@@ -19,7 +15,6 @@ from django.shortcuts import (
     HttpResponseRedirect,
     render,
     get_object_or_404,
-    get_list_or_404,
 )
 from django.urls import reverse
 from django.views import defaults
@@ -150,7 +145,6 @@ def transaction(request):
             'created_on': request.POST.get('created_on'),
             'initial-created_on': request.POST.get('initial-created_on'),
         }
-        print(user_request)
         # Passing extra arg 'portfolio' to create new portfolio if it does not exists before saving the tx
         transactionForm = TransactionForm(data=user_request, request=request, portfolio=new_portfolio)
         if transactionForm.is_valid():
@@ -195,7 +189,6 @@ def userProfile(request):
             registerForm = CustomUserChangeForm(request.POST, request.FILES, instance = get_object_or_404(User, pk=request.user.id))
             # Clean and validate the form
             if registerForm.is_valid():
-                #int('cleaned_data:', registerForm)
                 # Attempt to update new user
                 user = registerForm.save(commit=False)
     
@@ -276,10 +269,8 @@ def portfolio_id(request, portf_id):
     portfolios = [portf.serialize() for portf in Portfolio.objects.filter(user=request.user)]
     txs = Transaction.objects.filter(user=request.user, portfolio=portfolio)
     txs = [tx.serialize() for tx in txs]
-    print('portfolios:', portfolios, len(portfolios) > 2)
     # Remove the portfolio requested
     if request.method == "POST":
-        print(txs)
         # Only remove the portfolio if there exists more than one
         if len(portfolios) > 1:
             # Remove the corresponding transactions
@@ -287,9 +278,7 @@ def portfolio_id(request, portf_id):
                 for tx in txs:
                     # Do not remove transaction related to multiple portfolios
                     if len(tx["portfolio"]) != 1:
-                        print('before removal:', tx)
                         Transaction.objects.get(user=request.user, pk=tx["id"]).portfolio.remove(portfolio)
-                        print('after removal:', Transaction.objects.get(user=request.user, pk=tx["id"]))
                     else:
                         Transaction.objects.get(user=request.user, pk=tx["id"]).delete()
                         pass

@@ -1,6 +1,4 @@
 // Exclude 'DOMContentLoaded' event condition since babel standalone has it already
-//import { animated } from '@react-spring/web';
-//var we = require('@react-spring/web')
 const ReactSpring = window["ReactSpring"];
 const market_overview = ReactDOM.createRoot(document.getElementById("market-overview"));
 
@@ -40,7 +38,6 @@ function MarketOverview() {
         setFetchState(null);
         // Only display Boostrap 'placeholder' div if data is not loaded in 1s
         const timeout = setTimeout(() => {
-            //console.log('fetch state:', fetchRef.current);
             if (fetchRef.current === null) {
                 setFetchState('loading');
             }
@@ -69,7 +66,6 @@ function MarketOverview() {
             asset.prev_price_change_percentage_7d_in_currency = mounted ? parseFloat(tickerData[index].price_change_percentage_7d_in_currency) : asset.price_change_percentage_7d_in_currency;
             asset.prev_price !== asset.current_price ? changes = true : null;
         });
-        //console.log(data[0].prev_price, data[0].current_price, data[0].prev_price > data[0].current_price, changes);
 
         // Update the state only after the post-processing is completed
         setFetchState(response.status);
@@ -89,7 +85,6 @@ function MarketOverview() {
     const [pageNum, setPageNum] = React.useState(1);
     // Update the css properties of page-link once the page state changes
     const updatePagination = (num) => {
-        //console.log('num:', num);
         const pageElement = document.querySelector(`#page${num}`);
         const allpages = document.getElementsByClassName('page-item');
         // Disabled all link
@@ -129,13 +124,13 @@ function MarketOverview() {
 
     // Update asset and chart data per 5s
     useInterval(() => {
-        //console.log('charData:', chartData);
         if (fetchState !== null && fetchError === null) {
             getTickerData()
                 .catch(err => setFetchState(404));
         }
     }, 5000);
 
+    // ReactSpring animations
     const [animateState, setAnimateState] = React.useState(true);
     const [fade, api] = ReactSpring.useSpring(() => ({
         from: { opacity: 0 },
