@@ -1,12 +1,13 @@
 var path = require("path");
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 var webpack = require('webpack');
 var BundleTracker = require('webpack-bundle-tracker');
-const AWS_STORAGE_BUCKET_NAME = "portfolio-serve";
+const AWS_STORAGE_BUCKET_NAME = process.env.AWS_STORAGE_BUCKET_NAME;
 const AWS_S3_CUSTOM_DOMAIN = `${AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com`;
 const AWS_LOCATION = 'static';
 
 module.exports = {
-    mode: 'development',
+    mode: 'production',
     context: __dirname,
 
     entry: {

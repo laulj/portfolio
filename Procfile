@@ -1,0 +1,1 @@
+web: gunicorn --chdir ./portfolio portfolio.wsgi:application

@@ -1,5 +1,5 @@
 # JS stuff
-node_modules
+*/node_modules
 
 # Dev stuff
 .git
@@ -7,8 +7,12 @@ node_modules
 LICENSE
 README.md
 .vscode
+*/.vscode
 __pycache__
+*/__pycache__
+*/*/__pycache__
+*/*/*/__pycache__
 *.pyc
 portfolio_venv/
-portfolio/media/user_*/
-db.sqlite3
+*/media/user_*/
+*/db.sqlite3
