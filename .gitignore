@@ -8,6 +8,7 @@ local_settings.py
 
 # dependencies
 /node_modules
+/portfolio/node_modules
 /.pnp
 .pnp.js
 

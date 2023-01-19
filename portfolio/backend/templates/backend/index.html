@@ -1,4 +1,5 @@
 {% extends "backend/layout.html" %}
+{% load render_bundle from webpack_loader %}
 {% load static %}
 {% load widget_tweaks %}
 
@@ -11,6 +12,5 @@
 {% endblock %}
 
 {% block script %}
-
-<script type="text/babel" src="{% static 'backend/index.js' %}"></script>
+{% render_bundle 'index' %}
 {% endblock %}

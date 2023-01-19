@@ -1,0 +1,48 @@
+{
+  "status": "done",
+  "assets": {
+    "dashboard-33085b6cce1621ab3daf.js": {
+      "name": "dashboard-33085b6cce1621ab3daf.js",
+      "path": "/Users/laulj/django-react/portfolio/assets/dist/dashboard-33085b6cce1621ab3daf.js",
+      "publicPath": "https://portfolio-serve.s3.amazonaws.com/static/dist/dashboard-33085b6cce1621ab3daf.js"
+    },
+    "index-33085b6cce1621ab3daf.js": {
+      "name": "index-33085b6cce1621ab3daf.js",
+      "path": "/Users/laulj/django-react/portfolio/assets/dist/index-33085b6cce1621ab3daf.js",
+      "publicPath": "https://portfolio-serve.s3.amazonaws.com/static/dist/index-33085b6cce1621ab3daf.js"
+    },
+    "layout-33085b6cce1621ab3daf.js": {
+      "name": "layout-33085b6cce1621ab3daf.js",
+      "path": "/Users/laulj/django-react/portfolio/assets/dist/layout-33085b6cce1621ab3daf.js",
+      "publicPath": "https://portfolio-serve.s3.amazonaws.com/static/dist/layout-33085b6cce1621ab3daf.js"
+    },
+    "transaction-33085b6cce1621ab3daf.js": {
+      "name": "transaction-33085b6cce1621ab3daf.js",
+      "path": "/Users/laulj/django-react/portfolio/assets/dist/transaction-33085b6cce1621ab3daf.js",
+      "publicPath": "https://portfolio-serve.s3.amazonaws.com/static/dist/transaction-33085b6cce1621ab3daf.js"
+    },
+    "transactionHistory-33085b6cce1621ab3daf.js": {
+      "name": "transactionHistory-33085b6cce1621ab3daf.js",
+      "path": "/Users/laulj/django-react/portfolio/assets/dist/transactionHistory-33085b6cce1621ab3daf.js",
+      "publicPath": "https://portfolio-serve.s3.amazonaws.com/static/dist/transactionHistory-33085b6cce1621ab3daf.js"
+    }
+  },
+  "chunks": {
+    "dashboard": [
+      "dashboard-33085b6cce1621ab3daf.js"
+    ],
+    "index": [
+      "index-33085b6cce1621ab3daf.js"
+    ],
+    "layout": [
+      "layout-33085b6cce1621ab3daf.js"
+    ],
+    "transaction": [
+      "transaction-33085b6cce1621ab3daf.js"
+    ],
+    "transactionHistory": [
+      "transactionHistory-33085b6cce1621ab3daf.js"
+    ]
+  },
+  "publicPath": "https://portfolio-serve.s3.amazonaws.com/static/dist/"
+}

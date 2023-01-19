@@ -6,6 +6,8 @@ from django.core.validators import RegexValidator
 from django.core.mail import send_mail
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from backend.storage_backend import PublicMediaS3Boto3Storage
+
 
 class CustomUserManager(UserManager):
     # Override UserManager to validate PortfolioUser in case-insensitive manner.
@@ -77,7 +79,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         ),
     )
     profile_image = models.ImageField(
-        upload_to=user_directory_path, blank=True, default="default.png"
+        upload_to=user_directory_path, storage=PublicMediaS3Boto3Storage(), blank=True, default="default.png"
     )
     email_confirmed = models.BooleanField(default=False)
     date_joined = models.DateTimeField(_("date joined"), default=timezone.now)

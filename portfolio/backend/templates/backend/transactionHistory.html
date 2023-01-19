@@ -1,4 +1,5 @@
 {% extends "backend/layout.html" %}
+{% load render_bundle from webpack_loader %}
 {% load static %}
 {% load widget_tweaks %}
 
@@ -9,7 +10,7 @@
 
 {% if request.user.is_authenticated %}
 <form action="{% url 'backend:transactionHistory' %}" method="post">
-  
+
     <div id="transactionHistory-page"></div>
 
 </form>
@@ -24,6 +25,6 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script type="text/babel" src="{% static 'backend/transactionHistory.js' %}"></script>
+{% render_bundle 'transactionHistory' %}
 {% endblock %}
 
