@@ -35,4 +35,3 @@ MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
 
 # Path where media is stored
 MEDIA_ROOT = os.path.join(BASE_DIR, "media/")
-

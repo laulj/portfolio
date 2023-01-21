@@ -255,10 +255,11 @@ $(document).ready(function () {
                         // Initiate the bootstrap form validation
                         form.classList.add('was-validated');
                     })();
+                } else {
+                    // Hide the modal if the tx is updated successfully
+                    $('#editModal' + id).modal('hide');
+                    update_txs();
                 }
-                // Hide the modal if the tx is updated successfully
-                $('#editModal' + id).modal('hide');
-                update_txs();
 
             }
 

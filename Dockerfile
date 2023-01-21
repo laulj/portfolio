@@ -20,7 +20,7 @@ RUN cd portfolio \
     && npm run build \
     && python3 manage.py makemigrations backend \
     && python3 manage.py migrate \
-    && python3 manage.py collectstatic --noinput\
+    #&& python3 manage.py collectstatic --noinput\
     && cd ..\
     && rm .env
 
