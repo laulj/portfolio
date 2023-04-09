@@ -14,6 +14,9 @@ from backend.storage_backend import PublicMediaS3Boto3Storage
 # load .env
 load_dotenv()
 
+if os.environ["DEBUG"] == "False":
+    from backend.storage_backend import PublicMediaS3Boto3Storage
+
 class CustomUserManager(UserManager):
     def get_by_natural_key(self, username):
         return self.get(**{self.model.USERNAME_FIELD + '__iexact': username})
