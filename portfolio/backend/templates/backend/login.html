@@ -5,13 +5,13 @@
 {% block body %}
 
 
-<form action="{% url 'backend:login' %}" method="post" class="mb-3 mx-auto w-50">
+<form action="{% url 'backend:login' %}" method="post" class="mb-3 mx-auto loginForm">
     {% csrf_token %}
     {% include "backend/generic_form.html" with form=loginForm %}
     <input class="btn btn-primary" type="submit" value="Login">
 </form>
 
-<div class="mx-auto w-50">
+<div class="mx-auto loginForm">
     <div class="text-start fs-6">
         Don't have an account? <a href="{% url 'backend:register' %}">Register here.</a></div>
 </div>

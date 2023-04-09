@@ -4,16 +4,11 @@
 *.pyc
 __pycache__
 local_settings.py
-static/
-
-### React ###
-frontend-static/
 
 # dependencies
-/node_modules
-/portfolio/node_modules
+node_modules/
 /portfolio/media/*
-/portfolio_venv/
+portfolio_venv/
 /.pnp
 .pnp.js
 /venv
@@ -25,8 +20,7 @@ frontend-static/
 db.sqlite3
 /build
 migrations/
-portfolio/assets/dist/
-portfolio/assets/js/
+assets/
 staticfiles/
 webpack-stats.json
 

@@ -110,17 +110,27 @@ li {
     opacity: 1;
 }
 
+.loginForm,
+.registerForm {
+    width: 50%;
+}
+
 @media screen and (max-width: 850px) {
     .lw-attribution {
         font-size: 0.65em;
     }
 
+    .loginForm,
+    .registerForm,
     #transactionForm {
         width: 80% !important;
     }
 }
 
 @media screen and (max-width: 770px) {
+
+    .loginForm,
+    .registerForm,
     #transactionForm {
         width: 90% !important;
     }

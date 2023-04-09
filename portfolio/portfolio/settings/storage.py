@@ -12,12 +12,10 @@ WEBPACK_LOADER = {
 }
 
 if DEBUG == "True":
-    print("storage.py DEBUG:", True)
     STATIC_URL = '/static/'
     STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles/")
     MEDIA_URL = '/media/'
 else:
-    print("storage.py DEBUG:", False)
     # Boto3
     DEFAULT_FILE_STORAGE = 'backend.storage_backend.PublicMediaS3Boto3Storage'
     STATICFILES_STORAGE = 'backend.storage_backend.StaticS3Boto3Storage'

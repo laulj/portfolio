@@ -35,10 +35,8 @@ ADMIN = [('LokJing', 'lok.jing.lau.80@gmail.com')]
 MANAGERS = [('LokJing', 'lok.jing.lau.80@gmail.com')]
 
 if DEBUG == "True":
-    print("settings.py DEBUG:", True)
     ALLOWED_HOSTS = ['*']
 else:
-    print("settings.py DEBUG:", False)
     ALLOWED_HOSTS = os.environ["ALLOWED_HOSTS"].split(',')
     CSRF_TRUSTED_ORIGINS = os.environ["CSRF_TRUSTED_ORIGINS"].split(',')
     SECURE_SSL_REDIRECT = os.environ["SECURE_SSL_REDIRECT"]
