@@ -22,6 +22,12 @@ class CustomUserCreationForm(UserCreationForm):
         )
         proxy = True
 
+    def clean_username(self):
+        # Ensure the username is unique in case-insensitive manner
+        username = self.cleaned_data['username'].lower()
+
+        return username
+
 
 class UserAdmin(UserAdmin):
     # The forms to add and change user instances

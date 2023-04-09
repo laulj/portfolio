@@ -1,3 +1,6 @@
+
+import os
+from dotenv import load_dotenv
 from django.db import models
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import UserManager, PermissionsMixin
@@ -8,12 +11,12 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from backend.storage_backend import PublicMediaS3Boto3Storage
 
+# load .env
+load_dotenv()
 
 class CustomUserManager(UserManager):
-    # Override UserManager to validate PortfolioUser in case-insensitive manner.
     def get_by_natural_key(self, username):
-        case_insensitive_username_field = "{}__iexact".format(self.model.USERNAME_FIELD)
-        return self.get(**{case_insensitive_username_field: username})
+        return self.get(**{self.model.USERNAME_FIELD + '__iexact': username})
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -27,15 +30,19 @@ class User(AbstractBaseUser, PermissionsMixin):
     2. Ensuring the username and email are unique (case-insensitive)
     3. Limiting username to ASCII letters and numbers, in addition to @, ., +, -, and _.
     4. Added profile_image for uploading image.
-    5. Added email_confirmed for email verification.
 
     Referenced, and modified from Django original repo,
     https://github.com/django/django/blob/main/django/contrib/auth/models.py
     """
+    objects = CustomUserManager()
 
     def user_directory_path(instance, filename):
-        # file will be uploaded to MEDIA_ROOT/user_<id>/<filename>
-        return "user_{0}/{1}".format(instance.user.id, filename)
+        # File will be uploaded to MEDIA_ROOT/profileImg/user_<id>/<filename>
+        # Since the User obj is not yet saved, use the next available pk for User
+        id = 1
+        if User.objects.all():
+            id = User.objects.order_by('-id').first().id + 1
+        return "profileImg/user_{0}/{1}".format(id, filename)
 
     # Accepting ASCII instead of Unicode
     username_validator = ASCIIUsernameValidator()
@@ -79,12 +86,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         ),
     )
     profile_image = models.ImageField(
-        upload_to=user_directory_path, storage=PublicMediaS3Boto3Storage(), blank=True, default="default.png"
+        upload_to=user_directory_path, storage=None if os.environ["DEBUG"]=="True" else PublicMediaS3Boto3Storage(), blank=True, default="default.png"
     )
     email_confirmed = models.BooleanField(default=False)
     date_joined = models.DateTimeField(_("date joined"), default=timezone.now)
-
-    objects = CustomUserManager()
 
     EMAIL_FIELD = "email"
     USERNAME_FIELD = "username"
@@ -137,11 +142,6 @@ class Portfolio(models.Model):
             "unique": _("A portfolio with that name already exists."),
         },
     )
-    description = models.TextField(
-        help_text=_(
-            "Optional. An introduction to your portfolio. Letters, digits and @/./+/-/_ only."
-        )
-    )
     created_on = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -151,7 +151,6 @@ class Portfolio(models.Model):
         return {
             "id": self.id,
             "name": self.name,
-            "description": self.description,
             "created_on": self.created_on.strftime("%b %d %Y, %I:%M %p")
         }
 

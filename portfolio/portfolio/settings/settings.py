@@ -28,26 +28,29 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 SECRET_KEY = os.environ["SECRET_KEY"]
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = os.environ["DEBUG"]
 
 ADMIN = [('LokJing', 'lok.jing.lau.80@gmail.com')]
 
 MANAGERS = [('LokJing', 'lok.jing.lau.80@gmail.com')]
 
-ALLOWED_HOSTS = os.environ["ALLOWED_HOSTS"].split(',')
+if DEBUG == "True":
+    print("settings.py DEBUG:", True)
+    ALLOWED_HOSTS = ['*']
+else:
+    print("settings.py DEBUG:", False)
+    ALLOWED_HOSTS = os.environ["ALLOWED_HOSTS"].split(',')
+    CSRF_TRUSTED_ORIGINS = os.environ["CSRF_TRUSTED_ORIGINS"].split(',')
+    SECURE_SSL_REDIRECT = os.environ["SECURE_SSL_REDIRECT"]
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_HSTS_SECONDS = 2592000 
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
-CSRF_TRUSTED_ORIGINS = os.environ["CSRF_TRUSTED_ORIGINS"].split(',')
-
-SECURE_SSL_REDIRECT = os.environ["SECURE_SSL_REDIRECT"]
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_HSTS_SECONDS = 2592000 
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',

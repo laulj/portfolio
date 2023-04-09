@@ -102,7 +102,6 @@ def register(request):
             Portfolio.objects.create(
                 user=user,
                 name="Default",
-                description=_("An auto-generated default portfolio."),
             )
             return HttpResponseRedirect(reverse("backend:index"))
 
@@ -187,6 +186,7 @@ def userProfile(request):
         # create a form instance and populate it with data from the request
         if action == 'Update':
             registerForm = CustomUserChangeForm(request.POST, request.FILES, instance = get_object_or_404(User, pk=request.user.id))
+            
             # Clean and validate the form
             if registerForm.is_valid():
                 # Attempt to update new user

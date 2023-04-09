@@ -13,14 +13,16 @@ $(document).ready(function () {
         )
     }
     function TxHistory() {
-
+        // ---------- Portfolio and Txs States ----------
         const [portfolios, setPortfolios] = React.useState([]);
         const [txs, setTxs] = React.useState([]);
         const [fetchState, setFetchState] = React.useState(null);
         const [txsError, setTxsError] = React.useState(null);
 
         React.useEffect(() => {
+            // Fetch and initialize txs data
             update_txs();
+
             // Select2
             $('.transactionFilter_portfolio').select2({
                 theme: "bootstrap-5",
@@ -32,7 +34,8 @@ $(document).ready(function () {
                 tokenSeparators: [',', ' '],
                 debug: true,
             });
-            // Trigger select-2 event when an option is selected and unselected
+
+            // Trigger select-2 event when an option is selected and unselected, i.e. sort by which aspect
             $('.transactionFilter_portfolio').on('select2:select', (e) => {
                 handleClick("portfolio");
             });
@@ -42,6 +45,7 @@ $(document).ready(function () {
         }, []);
 
         const update_txs = async () => {
+            // Fetch and return portfolios data through a callback function
             const callbackPortfs = await getPortfolios();
             setPortfolios(callbackPortfs());
 
@@ -95,16 +99,17 @@ $(document).ready(function () {
             return;
         };
 
+        // ---------- Sorting States ----------
         const [activeSort, setActiveSort] = React.useState([null, true]);
 
         React.useEffect(() => {
-            // Sort txs by aspect, i.e. date, type, coin, price, and size
             const sortedTxs = sortTxs(activeSort, structuredClone(txs));
             setTxs(sortedTxs);
 
         }, [activeSort]);
 
         const sortTxs = ([id, asc], txs_data = null) => {
+            // Sort txs by aspect, i.e. date, type, coin, price, and size
             const sortFunction = (a, b) => {
                 // Sort by ascending order if asc is True
                 return asc === true ? (a - b) : (b - a);
@@ -197,6 +202,7 @@ $(document).ready(function () {
         };
 
         const updateTx = async (id) => {
+            // To update an existing transaction
             let ignore = false;
 
             if (!ignore) {
@@ -233,6 +239,7 @@ $(document).ready(function () {
                         created_on: tx.created_on
                     })
                 });
+
                 // Get the response status
                 const responseStatus = response.status;
                 if (responseStatus !== 204) {
@@ -240,6 +247,7 @@ $(document).ready(function () {
                     response = await response.json();
                     const errors = JSON.parse(response.error);
 
+                    // Errors handling
                     (() => {
                         'use strict'
 
@@ -267,7 +275,9 @@ $(document).ready(function () {
                 ignore = true;
             }
         }
+
         const removeTx = async (id) => {
+            // Remove an existing transaction
             let ignore = false;
 
             if (!ignore) {

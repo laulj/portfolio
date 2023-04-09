@@ -6,7 +6,11 @@
   "private": true,
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "webpack"
+    "build": "webpack",
+    "collect": "npm run clean-up && npm run copy-js && npm run build",
+    "clean-up": "rm -rf assets/dist/*",
+    "copy-js": "copyfiles -f 'backend/static/backend/*.js*' 'assets/js/'",
+    "copy-css": "copyfiles -f 'backend/static/backend/*.css*' 'assets/css/'"
   },
   "keywords": [],
   "author": "",
@@ -17,6 +21,7 @@
     "@babel/preset-env": "^7.20.2",
     "@babel/preset-react": "^7.18.6",
     "babel-loader": "^9.1.2",
+    "copyfiles": "^2.4.1",
     "dotenv": "^16.0.3",
     "webpack": "^5.75.0",
     "webpack-bundle-tracker": "^1.8.0"

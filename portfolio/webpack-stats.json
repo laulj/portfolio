@@ -1,63 +1,54 @@
 {
   "status": "done",
   "assets": {
-    "dashboard-e1c0973f255fa800b441.js": {
-      "name": "dashboard-e1c0973f255fa800b441.js",
-      "path": "/Users/laulj/django-react/portfolio/assets/dist/dashboard-e1c0973f255fa800b441.js",
-      "publicPath": "https://portfolio-serve.s3.amazonaws.com/static/dist/dashboard-e1c0973f255fa800b441.js"
+    "dashboard-662bfd6c5b3d641b9396.js": {
+      "name": "dashboard-662bfd6c5b3d641b9396.js",
+      "path": "/Users/laulj/django-react/portfolio/assets/dist/dashboard-662bfd6c5b3d641b9396.js"
     },
-    "dashboard-e1c0973f255fa800b441.js.LICENSE.txt": {
-      "name": "dashboard-e1c0973f255fa800b441.js.LICENSE.txt",
-      "path": "/Users/laulj/django-react/portfolio/assets/dist/dashboard-e1c0973f255fa800b441.js.LICENSE.txt",
-      "publicPath": "https://portfolio-serve.s3.amazonaws.com/static/dist/dashboard-e1c0973f255fa800b441.js.LICENSE.txt"
+    "dashboard-662bfd6c5b3d641b9396.js.LICENSE.txt": {
+      "name": "dashboard-662bfd6c5b3d641b9396.js.LICENSE.txt",
+      "path": "/Users/laulj/django-react/portfolio/assets/dist/dashboard-662bfd6c5b3d641b9396.js.LICENSE.txt"
     },
-    "index-e1c0973f255fa800b441.js": {
-      "name": "index-e1c0973f255fa800b441.js",
-      "path": "/Users/laulj/django-react/portfolio/assets/dist/index-e1c0973f255fa800b441.js",
-      "publicPath": "https://portfolio-serve.s3.amazonaws.com/static/dist/index-e1c0973f255fa800b441.js"
+    "index-662bfd6c5b3d641b9396.js": {
+      "name": "index-662bfd6c5b3d641b9396.js",
+      "path": "/Users/laulj/django-react/portfolio/assets/dist/index-662bfd6c5b3d641b9396.js"
     },
-    "index-e1c0973f255fa800b441.js.LICENSE.txt": {
-      "name": "index-e1c0973f255fa800b441.js.LICENSE.txt",
-      "path": "/Users/laulj/django-react/portfolio/assets/dist/index-e1c0973f255fa800b441.js.LICENSE.txt",
-      "publicPath": "https://portfolio-serve.s3.amazonaws.com/static/dist/index-e1c0973f255fa800b441.js.LICENSE.txt"
+    "index-662bfd6c5b3d641b9396.js.LICENSE.txt": {
+      "name": "index-662bfd6c5b3d641b9396.js.LICENSE.txt",
+      "path": "/Users/laulj/django-react/portfolio/assets/dist/index-662bfd6c5b3d641b9396.js.LICENSE.txt"
     },
-    "layout-e1c0973f255fa800b441.js": {
-      "name": "layout-e1c0973f255fa800b441.js",
-      "path": "/Users/laulj/django-react/portfolio/assets/dist/layout-e1c0973f255fa800b441.js",
-      "publicPath": "https://portfolio-serve.s3.amazonaws.com/static/dist/layout-e1c0973f255fa800b441.js"
+    "layout-662bfd6c5b3d641b9396.js": {
+      "name": "layout-662bfd6c5b3d641b9396.js",
+      "path": "/Users/laulj/django-react/portfolio/assets/dist/layout-662bfd6c5b3d641b9396.js"
     },
-    "transaction-e1c0973f255fa800b441.js": {
-      "name": "transaction-e1c0973f255fa800b441.js",
-      "path": "/Users/laulj/django-react/portfolio/assets/dist/transaction-e1c0973f255fa800b441.js",
-      "publicPath": "https://portfolio-serve.s3.amazonaws.com/static/dist/transaction-e1c0973f255fa800b441.js"
+    "transaction-662bfd6c5b3d641b9396.js": {
+      "name": "transaction-662bfd6c5b3d641b9396.js",
+      "path": "/Users/laulj/django-react/portfolio/assets/dist/transaction-662bfd6c5b3d641b9396.js"
     },
-    "transactionHistory-e1c0973f255fa800b441.js": {
-      "name": "transactionHistory-e1c0973f255fa800b441.js",
-      "path": "/Users/laulj/django-react/portfolio/assets/dist/transactionHistory-e1c0973f255fa800b441.js",
-      "publicPath": "https://portfolio-serve.s3.amazonaws.com/static/dist/transactionHistory-e1c0973f255fa800b441.js"
+    "transactionHistory-662bfd6c5b3d641b9396.js": {
+      "name": "transactionHistory-662bfd6c5b3d641b9396.js",
+      "path": "/Users/laulj/django-react/portfolio/assets/dist/transactionHistory-662bfd6c5b3d641b9396.js"
     },
-    "transactionHistory-e1c0973f255fa800b441.js.LICENSE.txt": {
-      "name": "transactionHistory-e1c0973f255fa800b441.js.LICENSE.txt",
-      "path": "/Users/laulj/django-react/portfolio/assets/dist/transactionHistory-e1c0973f255fa800b441.js.LICENSE.txt",
-      "publicPath": "https://portfolio-serve.s3.amazonaws.com/static/dist/transactionHistory-e1c0973f255fa800b441.js.LICENSE.txt"
+    "transactionHistory-662bfd6c5b3d641b9396.js.LICENSE.txt": {
+      "name": "transactionHistory-662bfd6c5b3d641b9396.js.LICENSE.txt",
+      "path": "/Users/laulj/django-react/portfolio/assets/dist/transactionHistory-662bfd6c5b3d641b9396.js.LICENSE.txt"
     }
   },
   "chunks": {
     "dashboard": [
-      "dashboard-e1c0973f255fa800b441.js"
+      "dashboard-662bfd6c5b3d641b9396.js"
     ],
     "index": [
-      "index-e1c0973f255fa800b441.js"
+      "index-662bfd6c5b3d641b9396.js"
     ],
     "layout": [
-      "layout-e1c0973f255fa800b441.js"
+      "layout-662bfd6c5b3d641b9396.js"
     ],
     "transaction": [
-      "transaction-e1c0973f255fa800b441.js"
+      "transaction-662bfd6c5b3d641b9396.js"
     ],
     "transactionHistory": [
-      "transactionHistory-e1c0973f255fa800b441.js"
+      "transactionHistory-662bfd6c5b3d641b9396.js"
     ]
-  },
-  "publicPath": "https://portfolio-serve.s3.amazonaws.com/static/dist/"
+  }
 }

@@ -10,7 +10,7 @@
 {{ form.media }}  {# Adds widget's JS/CSS files from CDN #}
 {% if request.user.is_authenticated %}
 <div id="transaction-page">
-    <form action="{% url 'backend:transaction' %}" method="post" class="row g-3 mx-auto w-50" novalidate>
+    <form id="transactionForm" action="{% url 'backend:transaction' %}" method="post" class="row g-3 mx-auto w-50" novalidate>
         {% csrf_token %}
 
         {% for hidden_field in form.hidden_fields %}

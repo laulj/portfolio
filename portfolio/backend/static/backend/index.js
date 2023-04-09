@@ -24,24 +24,51 @@ $(document).ready(function () {
     }
 
     function MarketOverview() {
+        // ---------Ticker States---------
         const [tickerData, setTickerData] = React.useState([]);
         const [fetchState, setFetchState] = React.useState(null);
         const [fetchError, setFetchError] = React.useState(null);
-        // For referencing latest fetchState in setTimeout
+
+        // For referencing, the latest fetchState in setTimeout
         const fetchRef = React.useRef();
         fetchRef.current = fetchState;
+
+        React.useEffect(() => {
+            // Fetch ticker data
+            getTickerData()
+                .catch(err => setFetchState(404));
+
+            // Initialize pagination
+            updatePagination(pageNum);
+            fadeIn();
+        }, [])
+        React.useEffect(() => {
+            // Enable and disable the "next" and "previous" element according to the changes in page length
+            updatePagination(pageNum);
+        }, [tickerData])
+
         React.useEffect(() => {
             // Error handling
-            fetchState !== 200 && fetchState !== 'loading' && fetchState !== null ? setFetchError("Too many requests: Failed to fetch data from Coingecko, try again later.") : setFetchError(null);
+            if (fetchState !== 200 && fetchState !== 'loading' && fetchState !== null) {
+                setFetchError("Too many requests: Failed to fetch data from Coingecko, try again later.");
+                // If failed to fetch tickerData, set pageNum back to default, i.e. 1
+                updatePagination(1);
+            } else {
+                setFetchError(null);
+            }
+
         }, [fetchState]);
+
         const getTickerData = async () => {
             setFetchState(null);
+
             // Only display Boostrap 'placeholder' div if data is not loaded in 1s
             const timeout = setTimeout(() => {
                 if (fetchRef.current === null) {
                     setFetchState('loading');
                 }
             }, 1000);
+
             // Wait for response
             const response = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=1000&page=1&sparkline=false&price_change_percentage=24h%2C7d`, { method: 'GET' });
             clearTimeout(timeout);
@@ -56,7 +83,8 @@ $(document).ready(function () {
             } else {
                 mounted = true;
             }
-            // Only trigger animation when there is a changes between the prev and current values
+
+            // Animations
             let changes = false;
             data.forEach((asset, index) => {
                 asset.prev_price = mounted ? parseFloat(tickerData[index].current_price) : asset.current_price;
@@ -64,73 +92,91 @@ $(document).ready(function () {
                 asset.prev_total_volume = mounted ? parseFloat(tickerData[index].total_volume) : asset.total_volume;
                 asset.prev_price_change_percentage_24h = mounted ? parseFloat(tickerData[index].price_change_percentage_24h) : asset.price_change_percentage_24h;
                 asset.prev_price_change_percentage_7d_in_currency = mounted ? parseFloat(tickerData[index].price_change_percentage_7d_in_currency) : asset.price_change_percentage_7d_in_currency;
+                // Only trigger animation when there is a changes between the prev and current values
                 asset.prev_price !== asset.current_price ? changes = true : null;
             });
 
-            // Update the state only after the post-processing is completed
+            // Update the state after the post-processing is completed
             setFetchState(response.status);
-
             setTickerData(data);
+
             // Toggle Refresh animation
             changes ? setAnimateState(!animateState) : null;
+
             return data;
         };
 
-        React.useEffect(() => {
-            getTickerData()
-                .catch(err => setFetchState(404));
-        }, [])
-
-        // Pagination state
-        const [pageNum, setPageNum] = React.useState(1);
-        // Update the css properties of page-link once the page state changes
-        const updatePagination = (num) => {
-            const pageElement = document.querySelector(`#page${num}`);
-            const allpages = document.getElementsByClassName('page-item');
-            // Disabled all link
-            for (let page of allpages) {
-                page.classList.remove('active', 'disabled');
-            }
-            // Enable the clciked link
-            pageElement.classList.add('active');
-
-            // Disable the previous and next link accordingly
-            if (parseInt(num) === 1) {
-                // Enable 'next' and disable 'previous'
-                document.getElementsByClassName('previous')[0].classList.add('disabled');
-                document.getElementsByClassName('next')[0].classList.add('active');
-            }
-            else if (parseInt(num) === (allpages.length - 2)) {
-                // Enable 'previous' and disable 'next'
-                document.getElementsByClassName('next')[0].classList.add('disabled');
-                document.getElementsByClassName('previous')[0].classList.add('active');
-            }
-            else {
-                document.getElementsByClassName('previous')[0].classList.remove('disabled');
-                document.getElementsByClassName('next')[0].classList.remove('disabled');
-            }
-        }
-        React.useEffect(() => {
-            updatePagination(pageNum);
-        }, []);
-
-        // Compute the page length required
-        const tickerPerPage = parseInt(50);
-        let page_length = Math.ceil(tickerData.length / tickerPerPage);
-        let page_num = [];
-        for (let i = 2; i < page_length + 1; i++) {
-            page_num.push(<li key={i} id={"page" + i} className="page-item"><a className="page-link" onClick={() => { setPageNum(i); updatePagination(i); fadeIn(); }}>{i}</a></li>);
-        }
-
-        // Update asset and chart data per 5s
+        // Update asset and chart data per 30s
         useInterval(() => {
             if (fetchState !== null && fetchError === null) {
                 getTickerData()
                     .catch(err => setFetchState(404));
             }
-        }, 5000);
+        }, 30000);
 
-        // ReactSpring animations
+        // ---------Pagination states---------
+        const [pageNum, setPageNum] = React.useState(1);
+
+        // Update the css properties of page-link once the page state changes
+        const updatePagination = (num) => {
+            const pageElement = document.querySelector(`#page${num}`);
+            const allpages = document.getElementsByClassName('page-item');
+
+            // Disabled all link
+            for (let page of allpages) {
+                page.classList.remove('active', 'disabled');
+            }
+
+            // Enable the clciked link
+            pageElement !== null ? pageElement.classList.add('active') : null;
+
+            // Next and Previous elements
+            const previous = document.getElementsByClassName('previous')[0];
+            const next = document.getElementsByClassName('next')[0];
+
+            // Disable the previous and next link accordingly
+            if (allpages.length - 2 === 1) {
+                // If page length = 1, disable "next" and "previous"
+                previous.classList.add('disabled');
+                next.classList.add('disabled');
+            }
+            else if (parseInt(num) === 1 && allpages.length - 2 !== 1) {
+                // Enable 'next' and disable 'previous'
+                previous.classList.add('disabled');
+                next.classList.add('active');
+            }
+            else if (parseInt(num) === (allpages.length - 2) && allpages.length - 2 !== 1) {
+                // Enable 'previous' and disable 'next'
+                next.classList.add('disabled');
+                previous.classList.add('active');
+            }
+            else {
+                // If pageNum is not pointing to the the first or last page
+                previous.classList.remove('disabled');
+                next.classList.remove('disabled');
+            }
+            if (num <= allpages.length - 2) {
+                // Prevent setPageNum from exceeding page_length
+                setPageNum(num);
+            }
+
+            // Animation
+            if (pageNum !== parseInt(num)) {
+                // Run animation only when pageNum changes
+                fadeIn();
+            }
+
+        }
+        // Compute the page length required
+        const tickerPerPage = parseInt(50);
+        let page_length = Math.ceil(tickerData.length / tickerPerPage);
+        let page_num = [];
+        for (let i = 2; i < page_length + 1; i++) {
+            page_num.push(<li key={i} id={"page" + i} className="page-item"><a className="page-link" onClick={() => { updatePagination(i); }}>{i}</a></li>);
+        }
+
+
+        // ---------ReactSpring animations---------
         const [animateState, setAnimateState] = React.useState(true);
         const [fade, api] = ReactSpring.useSpring(() => ({
             from: { opacity: 0 },
@@ -181,16 +227,16 @@ $(document).ready(function () {
                     <nav aria-label="..." style={{ paddingTop: 15 }}>
                         <ul className="pagination pagination-sm justify-content-center">
                             <li className="page-item previous">
-                                <a className="page-link"><span onClick={() => { setPageNum(pageNum - 1); updatePagination(pageNum - 1); fadeIn(); }} aria-hidden="true">&laquo;</span></a>
+                                <a className="page-link" onClick={() => { updatePagination(pageNum - 1) }}><span aria-hidden="true">&laquo;</span></a>
                             </li>
                             <li id="page1" className="page-item" aria-current="page">
-                                <a className="page-link" onClick={() => { setPageNum(1); updatePagination(1); fadeIn(); }}>
+                                <a className="page-link" onClick={() => { updatePagination(1); }}>
                                     1
                                 </a>
                             </li>
                             {page_num}
                             <li className="page-item next">
-                                <a className="page-link"><span onClick={() => { setPageNum(pageNum + 1); updatePagination(pageNum + 1); fadeIn(); }} aria-hidden="true">&raquo;</span></a>
+                                <a className="page-link" onClick={() => { updatePagination(pageNum + 1); }}><span aria-hidden="true">&raquo;</span></a>
                             </li>
                         </ul>
                     </nav>

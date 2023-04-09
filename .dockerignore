@@ -16,3 +16,4 @@ __pycache__
 portfolio_venv/
 */media/user_*/
 */db.sqlite3
+*/staticfiles/

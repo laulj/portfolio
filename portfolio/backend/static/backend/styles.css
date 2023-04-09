@@ -110,6 +110,45 @@ li {
     opacity: 1;
 }
 
+@media screen and (max-width: 850px) {
+    .lw-attribution {
+        font-size: 0.65em;
+    }
+
+    #transactionForm {
+        width: 80% !important;
+    }
+}
+
+@media screen and (max-width: 770px) {
+    #transactionForm {
+        width: 90% !important;
+    }
+}
+
+@media screen and (max-width: 460px) {
+    .lw-attribution {
+        font-size: 0.5em;
+    }
+
+    #chartDisplayButton,
+    .portfolio_total_pnl,
+    .ticker-header {
+        font-size: 11px !important;
+    }
+
+    .txUtility_buttons {
+        font-size: 9px !important;
+    }
+
+    .ticker-container,
+    #portfolioName,
+    #portfolioName+ul li a span {
+        font-size: 10px !important;
+    }
+
+}
+
 /* PortfolioChart Icon Toggle */
 button[aria-expanded=true] .bi-eye-slash {
     display: none;

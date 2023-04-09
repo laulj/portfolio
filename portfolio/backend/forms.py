@@ -108,7 +108,7 @@ class TransactionForm(forms.ModelForm):
         if type == 'S':
             for portfolio_id in self.portfolio:
                 available_quantity = 0
-                # If self.instance does not raise ObjectDoesNotExists imply an update ('PUT') request to the transaction instead of create ('POST')
+                # If self.instance does not raise ObjectDoesNotExists would imply an update ('PUT') request to the transaction instead of create ('POST')
                 try:
                     txs = Transaction.objects.filter(user = self.request.user, symbol_id = symbol_id, portfolio = Portfolio.objects.get(pk=portfolio_id)).exclude(pk=self.instance.id)
                 except ObjectDoesNotExist:
