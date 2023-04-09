@@ -28,9 +28,11 @@ migrations/
 portfolio/assets/dist/
 portfolio/assets/js/
 staticfiles/
+webpack-stats.json
+
 # misc
 .DS_Store
-.env
+#.env
 .env.local
 .env.development.local
 .env.test.local

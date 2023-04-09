@@ -9,7 +9,6 @@ from django.core.validators import RegexValidator
 from django.core.mail import send_mail
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from backend.storage_backend import PublicMediaS3Boto3Storage
 
 # load .env
 load_dotenv()
