@@ -1,14 +1,17 @@
 # Python and Linux Version 
-FROM python:alpine3.17
+FROM node:16.20.2
+FROM python:3.12-alpine3.20
 
 COPY requirements.txt /app/requirements.txt
 
 # Configure server
 RUN set -ex \
     && pip install --upgrade pip \
+    && apk add -u zlib-dev jpeg-dev gcc musl-dev \
+    && apk add --no-cache npm \
     && pip install --no-cache-dir -r /app/requirements.txt \
-    && pip install chardet \
-    && apk add --no-cache nodejs-current npm
+    && pip install chardet
+     
 
 # Working directory
 WORKDIR /app
