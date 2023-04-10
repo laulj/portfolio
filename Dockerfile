@@ -5,7 +5,7 @@ COPY requirements.txt /app/requirements.txt
 
 # Configure server
 RUN set -ex \
-    && pip install --upgrade pip \  
+    && pip install --upgrade pip \
     && pip install --no-cache-dir -r /app/requirements.txt \
     && pip install chardet \
     && apk add --no-cache nodejs-current npm
@@ -17,10 +17,10 @@ ADD . .
 
 RUN cd portfolio \
     && npm install \
-    && npm run build \
+    && npm run collect \
     && python3 manage.py makemigrations backend \
     && python3 manage.py migrate \
-    #&& python3 manage.py collectstatic --noinput\
+    && python3 manage.py collectstatic --noinput\
     && cd ..\
     && rm .env
 
