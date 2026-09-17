@@ -37,7 +37,7 @@ RUN cd portfolio \
     && export SECRET_KEY="build-only-not-used-at-runtime" DEBUG=True \
     && npm run collect \
     && python manage.py makemigrations backend \
-    && python manage.py collectstatic --noinput
+    && python3 manage.py migrate --noinput 
 
 # ---------------------------------------------------------------------------
 # Runtime stage
@@ -62,4 +62,4 @@ EXPOSE 8000
 
 # Migrations are applied when the container starts (the SQLite database lives
 # inside the container), then gunicorn serves the app on $PORT.
-CMD ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn --chdir ./portfolio portfolio.wsgi:application --bind 0.0.0.0:${PORT}"]
+CMD ["sh", "-c", "cd /app/portfolio/ && python manage.py collectstatic --noinput --noinput && exec gunicorn --chdir ./portfolio portfolio.wsgi:application --bind 0.0.0.0:${PORT}"]
