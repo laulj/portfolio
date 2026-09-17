@@ -25,15 +25,16 @@ RUN cd portfolio && npm ci
 COPY . .
 
 # settings.py reads SECRET_KEY and DEBUG from the environment, so the manage.py
-# steps below need them. These are build-only values: the real ones are supplied
-# by the host at runtime, and `.env` is kept out of the build context by
-# .dockerignore. DEBUG stays True so webpack leaves the asset URLs to Django's
-# staticfiles storage instead of baking an S3 domain into the bundles.
-ENV SECRET_KEY="build-only-not-used-at-runtime" \
-    DEBUG=True \
-    PATH="/opt/venv/bin:$PATH"
+# steps below need them. They are throwaway build-only values (the runtime gets
+# the real ones from the host) and are exported inside this single RUN instead of
+# with ENV/ARG, so nothing secret-shaped is baked into a layer and the Docker
+# lint rule for ARG/ENV secrets stays quiet. DEBUG stays True so webpack leaves
+# the asset URLs to Django's staticfiles storage rather than baking an S3 domain
+# into the bundles.
+ENV PATH="/opt/venv/bin:$PATH"
 
 RUN cd portfolio \
+    && export SECRET_KEY="build-only-not-used-at-runtime" DEBUG=True \
     && npm run collect \
     && python manage.py makemigrations backend \
     && python manage.py collectstatic --noinput
