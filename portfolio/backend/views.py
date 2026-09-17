@@ -17,6 +17,7 @@ from django.shortcuts import (
     get_object_or_404,
 )
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import defaults
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.debug import sensitive_post_parameters
@@ -35,6 +36,9 @@ def index(request):
 def login_view(request):
     loginForm = AuthenticationForm()
 
+    # Where to go after a successful login, e.g. after a @login_required redirect
+    next_url = request.POST.get("next") or request.GET.get("next")
+
     if request.method == "POST":
 
         # Attempt to sign user in
@@ -49,14 +53,21 @@ def login_view(request):
             # Check if authentication successful
             if user is not None:
                 login(request, user)
+                if next_url and url_has_allowed_host_and_scheme(
+                    next_url,
+                    allowed_hosts={request.get_host()},
+                    require_https=request.is_secure(),
+                ):
+                    return HttpResponseRedirect(next_url)
                 return HttpResponseRedirect(reverse("backend:index"))
             else:
                 return render(
                     request,
                     "backend/login.html",
+                    {"loginForm": loginForm, "next": next_url},
                 )
 
-    return render(request, "backend/login.html", {"loginForm": loginForm})
+    return render(request, "backend/login.html", {"loginForm": loginForm, "next": next_url})
 
 
 def logout_view(request):
@@ -120,19 +131,27 @@ def transaction(request):
     if request.method == "POST":
         # Clean and validate the form
         new_portfolio = []
-        for index, portfolio in enumerate(request.POST.getlist('portfolio')):
+        for portfolio in request.POST.getlist('portfolio'):
             try:
-                Portfolio.objects.get(id=int(portfolio))
-                new_portfolio.append(portfolio)
-            except (ObjectDoesNotExist, ValueError) as error:
+                # Only the portfolios of the logged in user may be referenced by id
+                existing = Portfolio.objects.get(user=request.user, id=int(portfolio))
+            except (ObjectDoesNotExist, ValueError):
+                if portfolio.isdigit():
+                    # A stale or foreign id must never become a portfolio named
+                    # after that number.
+                    messages.add_message(
+                        request, messages.ERROR, _(f"Portfolio {portfolio} does not exist.")
+                    )
+                    continue
                 obj, created = Portfolio.objects.get_or_create(user=request.user, name=portfolio)
                 if created:
                     new_portfolio.append(obj.id)
-                    #request.POST.getlist('portfolio')[index] = obj.id
                 else:
                     messages.add_message(
                         request, messages.ERROR, _(f"Failed to create Portfolio {portfolio}.")
                     )
+            else:
+                new_portfolio.append(existing.id)
         user_request = {
             'type': request.POST.get('type'),
             'symbol_id': request.POST.get('symbol_id'),
@@ -172,9 +191,12 @@ def transactionHistory(request):
     for tx in txs:
         newTx = tx.serialize()
         newTx["created_on"] = newTx["created_on"].replace("T", " ")
-        newTx["portfolio"] = [{"id": tx.id, "name": tx.name} for tx in tx.portfolio.all()]
+        # Serialize the portfolios of this transaction, not the transaction itself
+        newTx["portfolio"] = [
+            {"id": portfolio.id, "name": portfolio.name}
+            for portfolio in tx.portfolio.all()
+        ]
         serialize_txs.append(newTx)
-        tx.user = None
     
     return render(request, "backend/transactionHistory.html", {"txs":serialize_txs})
 
@@ -300,9 +322,9 @@ def portfolio_id(request, portf_id):
 @login_required
 def tx(request, tx_id):
     # Query, alter, and remove for a specific transaction
-    try:
-        tx = Transaction.objects.get(user=request.user, id=tx_id)
-    except tx.DoesNotExist:
+    # Another user's transaction (or an unknown id) simply does not exist here
+    tx = Transaction.objects.filter(user=request.user, id=tx_id).first()
+    if tx is None:
         return JsonResponse({"error": "No tx found."}, status=404)
 
     # Return every transaction contents
@@ -355,10 +377,7 @@ def tx(request, tx_id):
 @login_required
 def txs(request):
     # Query for all transactions
-    try:
-        txs = Transaction.objects.filter(user=request.user)
-    except txs.DoesNotExist:
-        return JsonResponse({"error": "No txs found."}, status=404)
+    txs = Transaction.objects.filter(user=request.user)
 
     # Return every transaction contents
     if request.method == "GET":
@@ -378,10 +397,10 @@ def txs(request):
 @login_required
 def txs_data(request, portfolio_id):
     # Query for requested transactions for specific portfolio
-    try:
-        txs = Transaction.objects.filter(user=request.user, portfolio=Portfolio.objects.get(user=request.user, pk=portfolio_id))
-    except txs.DoesNotExist:
-        return JsonResponse({"error": "No txs found."}, status=404)
+    portfolio = Portfolio.objects.filter(user=request.user, pk=portfolio_id).first()
+    if portfolio is None:
+        return JsonResponse({"error": "No portfolio found."}, status=404)
+    txs = Transaction.objects.filter(user=request.user, portfolio=portfolio)
 
     # Return every transaction contents for queried portfolio
     if request.method == "GET":

@@ -32,3 +32,4 @@ zope.hookable==5.4
 zope.interface==5.5.2
 zope.lifecycleevent==4.4
 zope.proxy==4.6.1
+setuptools<82

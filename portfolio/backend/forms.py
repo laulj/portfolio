@@ -52,7 +52,28 @@ class CustomUserChangeForm(forms.ModelForm):
         model = User
         fields = ["username", "email", "profile_image"]
         localized_fields = "__all__"
-        
+
+    def clean_username(self):
+        # get_by_natural_key() looks users up with username__iexact while the
+        # database unique constraint is case-sensitive on SQLite, so two accounts
+        # differing only in case would make authentication ambiguous.
+        username = self.cleaned_data["username"].lower()
+        if User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError(
+                User._meta.get_field("username").error_messages["unique"]
+            )
+        return username
+
+    def clean_email(self):
+        # Email is unique too, so keep it unique in a case-insensitive manner.
+        email = self.cleaned_data["email"]
+        if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError(
+                User._meta.get_field("email").error_messages["unique"]
+            )
+        return email
+
+
 class TransactionForm(forms.ModelForm):
     
     class Meta:
@@ -101,29 +122,30 @@ class TransactionForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        type = cleaned_data.get("type")
+        tx_type = cleaned_data.get("type")
         quantity = cleaned_data.get("quantity")
         symbol_id = cleaned_data.get("symbol_id")
 
-        if type == 'S':
-            for portfolio_id in self.portfolio:
+        if tx_type == 'S':
+            for portfolio_id in getattr(self, "portfolio", []):
                 available_quantity = 0
                 # If self.instance does not raise ObjectDoesNotExists would imply an update ('PUT') request to the transaction instead of create ('POST')
                 try:
                     txs = Transaction.objects.filter(user = self.request.user, symbol_id = symbol_id, portfolio = Portfolio.objects.get(pk=portfolio_id)).exclude(pk=self.instance.id)
                 except ObjectDoesNotExist:
                     txs = Transaction.objects.filter(user = self.request.user, symbol_id = symbol_id, portfolio = Portfolio.objects.get(pk=portfolio_id))
-                if len(txs) != 0:
-                    for tx in txs:
-                        if tx.type == 'B':
-                            available_quantity += tx.quantity
-                        elif tx.type == 'S':
-                            available_quantity -= tx.quantity
-                    if available_quantity < quantity:
-                        self.add_error('quantity', _(f"You do not have enough {symbol_id} for selling."))
-                else:
+                for tx in txs:
+                    if tx.type == 'B':
+                        available_quantity += tx.quantity
+                    elif tx.type == 'S':
+                        available_quantity -= tx.quantity
+                # An edited transaction is excluded above, yet the coins it bought
+                # are still part of the holdings.
+                if self.instance.pk and self.instance.type == 'B':
+                    available_quantity += self.instance.quantity
+                if available_quantity < quantity:
                     self.add_error('quantity', _(f"You do not have enough {symbol_id} for selling."))
-        
+
         # Always return a value to use as the new cleaned data, even if
         # this method didn't change it.
         return cleaned_data

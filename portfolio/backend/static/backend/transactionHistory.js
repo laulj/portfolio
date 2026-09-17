@@ -82,6 +82,15 @@ $(document).ready(function () {
 
                 const data = await response.json();
                 setFetchState(response.status);
+                if (response.status === 404) {
+                    // Nothing recorded yet: an empty history is not an error, so
+                    // render the (empty) table instead of an error banner
+                    setTxsError(null);
+                    return () => {
+                        ignore = true;
+                        return [];
+                    };
+                }
                 if (response.status !== 200) {
                     setTxsError(data.error);
                     // Return null if the response is an error

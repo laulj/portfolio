@@ -16,6 +16,7 @@
 {% endblock %}
 
 {% block script %}
-<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<!-- Pinned: lightweight-charts v5 removed chart.addAreaSeries(), which this component uses -->
+<script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
 {% render_bundle 'dashboard' %}
 {% endblock %}

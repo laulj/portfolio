@@ -1,3 +1,4 @@
+from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.forms import UserCreationForm
@@ -25,8 +26,22 @@ class CustomUserCreationForm(UserCreationForm):
     def clean_username(self):
         # Ensure the username is unique in case-insensitive manner
         username = self.cleaned_data['username'].lower()
+        if User.objects.filter(username__iexact=username).exists():
+            raise forms.ValidationError(
+                User._meta.get_field("username").error_messages["unique"]
+            )
 
         return username
+
+    def clean_email(self):
+        # Email is unique as well, so keep it unique in case-insensitive manner
+        email = self.cleaned_data['email']
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError(
+                User._meta.get_field("email").error_messages["unique"]
+            )
+
+        return email
 
 
 class UserAdmin(UserAdmin):

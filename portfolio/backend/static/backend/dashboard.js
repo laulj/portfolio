@@ -15,11 +15,27 @@ $(document).ready(function () {
 
         React.useEffect(() => {
             function tick() {
-                savedCallback.current();
+                // Do not keep polling the market feeds while the tab is in the
+                // background: it wastes requests and battery for nothing.
+                if (!document.hidden) {
+                    savedCallback.current();
+                }
             }
 
             let id = setInterval(tick, delay);
-            return () => clearInterval(id);
+
+            // Refresh right away when the tab becomes visible again
+            const onVisibilityChange = () => {
+                if (!document.hidden) {
+                    savedCallback.current();
+                }
+            };
+            document.addEventListener('visibilitychange', onVisibilityChange);
+
+            return () => {
+                clearInterval(id);
+                document.removeEventListener('visibilitychange', onVisibilityChange);
+            };
         }, [delay]);
     }
 
@@ -35,6 +51,12 @@ $(document).ready(function () {
         const [portfolios, setPortfolios] = React.useState([]);
         const [generalError, setGeneralError] = React.useState(null);
 
+        // Incremented whenever the selected portfolio changes so that answers
+        // belonging to the previous portfolio are dropped instead of plotted.
+        const chartGeneration = React.useRef(0);
+        // Aborts the kline requests of a portfolio the user has left.
+        const abortRef = React.useRef(new AbortController());
+
         React.useEffect(() => {
             // Load user's portfolio on the first mount
             getPortfolios()
@@ -49,6 +71,11 @@ $(document).ready(function () {
         const [portfolioAsset, setPortfolioAsset] = React.useState([]);
 
         React.useEffect(() => {
+            // A new selection invalidates whatever the previous one was fetching
+            chartGeneration.current += 1;
+            abortRef.current.abort();
+            abortRef.current = new AbortController();
+
             // Initialize the portfolio dropdown innerHTML to the first portfolio name
             const element = document.getElementById('portfolioName');
             portfolios.map(portfolio => {
@@ -92,7 +119,12 @@ $(document).ready(function () {
                 const data = await response.json();
                 setPortfolios(data);
                 // Set the first portfolio as the default portfolio
-                setActivePortfolio(data[0].id);
+                if (data.length > 0) {
+                    setActivePortfolio(data[0].id);
+                } else {
+                    // Never index an empty list: there is nothing to select
+                    setGeneralError("No portfolio found. Record a transaction to create one.");
+                }
             }
 
             return () => {
@@ -105,151 +137,161 @@ $(document).ready(function () {
             // Construct charData between the first portfolio txs and current from txs data and binance API
             if (chartData.length === 0) {
 
+                // Answers arriving after a portfolio switch are stale
+                const generation = chartGeneration.current;
+
                 // Identify unique asset from user's txs
-                let symbols = new Set();
-                for (let tx of newTxs) {
-                    symbols.add(tx.symbol);
-                }
+                const symbols = Array.from(new Set(newTxs.map(tx => tx.symbol)));
 
-                // Convert the symbol Set to an array
-                symbols = Array.from(symbols);
+                // Query the klines (candle size adapted to the age of the portfolio)
+                // since the first portfolio transaction
+                const klineResults = await Promise.all(symbols.map(async symbol => ({
+                    symbol: symbol,
+                    uKline: await getuiKlinesById(
+                        symbol,
+                        Math.floor((new Date(newTxs[0].created_on)).getTime()),
+                        abortRef.current.signal
+                    ),
+                })));
 
-                // Query for tickers 4hr klines data since the first portfolio transction 
-                const promises = symbols.map(async symbol => {
-                    return { symbol: symbol, uKline: await getuiKlinesById(symbol, Math.floor((new Date(newTxs[0].created_on)).getTime())) };
+                if (generation !== chartGeneration.current) { return null; }
+
+                // A symbol whose candles could not be loaded is skipped instead of
+                // breaking the whole chart
+                const klinesBySymbol = new Map();
+                klineResults.forEach(({ symbol, uKline }) => {
+                    if (Array.isArray(uKline) && uKline.length !== 0) {
+                        klinesBySymbol.set(symbol, uKline);
+                    }
                 });
+                if (klinesBySymbol.size === 0) { return null; }
 
-                // Waiting for promises to resolve - a list of latest tickers/ assets in milliseconds
-                let latestAssetsValue_inMS = await Promise.all(promises);
-                if (latestAssetsValue_inMS[0].uKline === null) { return null; }
+                // A Binance candle is [openTime, open, high, low, close, ...].
+                // Binary search for the candle a timestamp falls into.
+                const priceAt = (symbol, timestamp_inMS) => {
+                    const uKline = klinesBySymbol.get(symbol);
+                    if (!uKline) { return null; }
+                    let low = 0;
+                    let high = uKline.length - 1;
+                    while (low < high) {
+                        const mid = Math.ceil((low + high) / 2);
+                        if (uKline[mid][0] <= timestamp_inMS) {
+                            low = mid;
+                        } else {
+                            high = mid - 1;
+                        }
+                    }
+                    return parseFloat(uKline[low][1]);
+                };
+
+                // One snapshot per transaction; the points in between share it
+                // instead of cloning the holdings for every candle
+                const snapshotOf = holdings => Array.from(holdings, ([symbol, quantity]) => ({ symbol, quantity }));
+
+                const res = [];
+                const holdings = new Map();
                 let net_worth = 0;
-                let asset_list = [];
 
-                const promises1 = newTxs.map(async tx => {
-                    let newchart = null;
-                    let current_price = null;
-
+                for (let tx of newTxs) {
                     // Method getTime() returns in time milliseonds since 1970
                     let unixTimestamp_inMS = Math.floor((new Date(tx.created_on)).getTime());
+                    const signed_quantity = tx.type === 'B' ? tx.quantity : -tx.quantity;
+                    // Price at the candle the transaction falls into instead of tx.bought_at
+                    const current_price = priceAt(tx.symbol, unixTimestamp_inMS);
 
-                    // Get the price of the asset at the closest 4hr Kline candlestick instead of tx.bought_on
-                    latestAssetsValue_inMS.map(AssetValue => {
-                        if (AssetValue.symbol === tx.symbol) {
-                            for (let i = 0; i < AssetValue.uKline.length - 2; i++) {
-                                // If transaction is created closer to the opening hour of the 4hr Kline candlestick
-                                if (unixTimestamp_inMS - AssetValue.uKline[i][0] <= unixTimestamp_inMS - AssetValue.uKline[i + 1][0]) {
-                                    // Use the starting price of the 4hr Kline candlestick
-                                    current_price = AssetValue.uKline[i][1];
-                                } else {
-                                    // Use the ending price of the 4hr Kline candlestick
-                                    current_price = AssetValue.uKline[i + 1][1];
-                                }
-                            }
-                        }
-                    });
+                    net_worth += signed_quantity * (current_price === null ? 0 : current_price);
+                    holdings.set(tx.symbol, (holdings.get(tx.symbol) || 0) + signed_quantity);
 
-                    // Compute current (net) holding of each ticker/ asset based on the txs fetched
-                    if (tx.type === 'B') {
-                        net_worth += tx.quantity * current_price;
-                        asset_list.push({ symbol: tx.symbol, quantity: tx.quantity });
-                    }
-                    else if (tx.type === 'S') {
-                        net_worth -= tx.quantity * current_price;
-                        asset_list.forEach(asset => {
-                            if (asset.symbol === tx.symbol) {
-                                asset.quantity -= tx.quantity;
-                            }
-                        });
-                    }
+                    res.push(new portfolioChartData(unixTimestamp_inMS / 1000, snapshotOf(holdings), net_worth));
+                }
 
-                    // Construct the chart data by cloning the array of objects to prevent pointing to the same address/ reference
-                    newchart = new portfolioChartData(unixTimestamp_inMS / 1000, structuredClone(asset_list), net_worth);
-
-                    return newchart;
-                });
-
-                // Waiting for promises on chart data to resolve
-                let res = await Promise.all(promises1);
-
-                /* 
+                /*
                     Chart could not be plotted only with user's portfolio txs, therefore more chart data are required,
-                    and are computed and created between the available two txs.
+                    and are computed and created between the available two txs: the holdings
+                    after the closest transaction before each candle are valued with that
+                    candle's price.
                 */
-                // Get the timestamps(ms) of the uKline
-                const uKline_unixTimestamp_inMS = latestAssetsValue_inMS[0].uKline;
+                const referenceKlines = klinesBySymbol.values().next().value;
+                const filledPoints = [];
+                let cursor = 0;
 
-                // Sort new Chart Data by timestamps(ms) of uKline
-                const promises2 = uKline_unixTimestamp_inMS.map(async (timestamp_inMS, index) => {
-
-                    // Determine the networth at that instance by finding the closest transaction before timestamp_inMS
-                    const promises = res.map(async (portChartData, chartDataIndex) => {
-                        let net_worth = 0;
-
-                        // If timestamp_inMS[i] is < chartData[j].time, the networth of user's portfolio at that instance must be at chartData[j - 1].time
-                        if (timestamp_inMS[0] < res[res.length - chartDataIndex - 1].time * 1000 && chartDataIndex <= (res.length - 2)) {
-                            const promises = res[res.length - chartDataIndex - 2].assets.map(async asset => {
-                                const promises = latestAssetsValue_inMS.map(async AssetValue => {
-                                    if (asset.symbol === AssetValue.symbol) {
-                                        net_worth += parseFloat(asset.quantity * AssetValue.uKline[index][1]);
-                                    }
-                                });
-                                await Promise.all(promises);
-                            });
-
-                            await Promise.all(promises);
-
-                            return new portfolioChartData(timestamp_inMS[0] / 1000, structuredClone(res[res.length - chartDataIndex - 2].assets), net_worth);
-                        }
-                        return null;
-                    });
-                    let new_chartData = await Promise.all(promises);
-                    new_chartData = new_chartData.filter(data => data !== null);
-
-                    if (new_chartData.length !== 0) {
-                        res.push(new_chartData[0]);
+                referenceKlines.forEach(candle => {
+                    const timestamp_inMS = candle[0];
+                    // The transactions are ordered by date, so the cursor only moves forward
+                    while (cursor + 1 < res.length && res[cursor + 1].time * 1000 <= timestamp_inMS) {
+                        cursor += 1;
                     }
+                    // Nothing was held before the first transaction
+                    if (timestamp_inMS < res[0].time * 1000) {
+                        return;
+                    }
+
+                    const state = res[cursor];
+                    let netWorthAtCandle = 0;
+                    state.assets.forEach(asset => {
+                        const price = priceAt(asset.symbol, timestamp_inMS);
+                        if (price !== null) {
+                            netWorthAtCandle += asset.quantity * price;
+                        }
+                    });
+
+                    filledPoints.push(new portfolioChartData(timestamp_inMS / 1000, state.assets, netWorthAtCandle));
                 });
-                await Promise.all(promises2);
+
+                // Sort the chart data by time in ascending order and drop the
+                // timestamps a candle and a transaction share
+                const sorted = res.concat(filledPoints).sort((a, b) => { return a.time - b.time });
+                const chartPoints = sorted.filter((point, index, all) => index === 0 || point.time !== all[index - 1].time);
 
                 // Add starting chart data, i.e. networth = 0
-                res.push(new portfolioChartData(res[0].time - 4 * 60 * 60, [], parseFloat(0.00)));
-
-                // Sort the array of chart data by time in ascending order
-                res.sort((a, b) => { return a.time - b.time });
+                chartPoints.unshift(new portfolioChartData(chartPoints[0].time - 4 * 60 * 60, [], parseFloat(0.00)));
 
                 // Get current time chart data
-                const latest_assets = res[res.length - 1].assets;
-                net_worth = 0;
+                const latest_assets = chartPoints[chartPoints.length - 1].assets;
 
-                // Query the current price feed to compute the latest networth
-                const promises3 = latest_assets.map(async asset => {
-                    const price = await getCurrentAveragePriceById(asset.symbol);
-                    net_worth += asset.quantity * price;
+                // Query the current price feed (a single request for every asset) to
+                // compute the latest networth
+                const current_prices = await getCurrentAveragePrices(latest_assets.map(asset => asset.symbol));
+                if (generation !== chartGeneration.current) { return null; }
+
+                let latest_net_worth = 0;
+                latest_assets.forEach(asset => {
+                    const price = current_prices.get(asset.symbol);
+                    if (price !== undefined) {
+                        latest_net_worth += asset.quantity * price;
+                    }
                 });
-                await Promise.all(promises3);
 
                 // Finalize the chart data
-                res.push(new portfolioChartData((new Date()).getTime() / 1000, structuredClone(latest_assets), net_worth));
+                chartPoints.push(new portfolioChartData((new Date()).getTime() / 1000, latest_assets, latest_net_worth));
 
-                setChartData(res);
+                setChartData(chartPoints);
 
-                return res;
+                return chartPoints;
             } else {
                 // Update the latest chart data only
-                let net_worth = 0;
+                const generation = chartGeneration.current;
                 // Get the latest list of tickers/ assets
                 const latest_assets = chartData[chartData.length - 1].assets;
 
                 let portfolioAssetToUpdate = [...portfolioAsset];
 
-                const promises = latest_assets.map(async asset => {
-                    const price = await getCurrentAveragePriceById(asset.symbol);
+                // One batched request instead of one request per asset
+                const current_prices = await getCurrentAveragePrices(latest_assets.map(asset => asset.symbol));
+                if (generation !== chartGeneration.current) { return null; }
+
+                let net_worth = 0;
+                latest_assets.forEach(asset => {
+                    const price = current_prices.get(asset.symbol);
+                    if (price === undefined) {
+                        return;
+                    }
                     // Update portfolio asset metrics
                     portfolioAssetToUpdate.forEach(pAsset => {
                         if (pAsset.symbol === asset.symbol.toLowerCase()) {
                             pAsset.prev_price = parseFloat(pAsset.current_price);
-                            pAsset.current_price = parseFloat(price);
-                            pAsset.pnl = (pAsset.current_price - pAsset.average_cost) * 100 / pAsset.average_cost;
+                            pAsset.current_price = price;
+                            pAsset.pnl = pAsset.average_cost === 0 ? 0 : (pAsset.current_price - pAsset.average_cost) * 100 / pAsset.average_cost;
                         }
                     });
                     // Update chart data
@@ -258,10 +300,12 @@ $(document).ready(function () {
 
                 setPortfolioAsset(portfolioAssetToUpdate);
 
-                await Promise.all(promises);
-
-                // The latest chart data is updated through lightweightChart API separately to prevent disturbing the existing chartData i.e. causing it to re-render disruptively for every changes
-                setChartUpdate(new portfolioChartData((new Date()).getTime() / 1000, structuredClone(latest_assets), net_worth));
+                // Push the new point straight into the series: routing every 5s tick
+                // through React state re-rendered the whole dashboard for one point.
+                // Without a fresh price the networth would drop to zero, so skip it.
+                if (areaSeriesRef.current && current_prices.size !== 0) {
+                    areaSeriesRef.current.update(new portfolioChartData((new Date()).getTime() / 1000, latest_assets, net_worth));
+                }
 
                 setAnimateState(!animateState);
             }
@@ -295,9 +339,13 @@ $(document).ready(function () {
                         }
                     }
                 }
-                asset.average_cost /= asset.quantity;
-                asset.pnl = (asset.current_price - asset.average_cost) * 100 / asset.average_cost;
+                asset.average_cost = asset.quantity === 0 ? 0 : asset.average_cost / asset.quantity;
+                asset.pnl = asset.average_cost === 0 ? 0 : (asset.current_price - asset.average_cost) * 100 / asset.average_cost;
             })
+
+            // Positions that were fully sold again hold nothing, so omit them
+            // instead of dividing by a zero quantity
+            temp_asset = temp_asset.filter(asset => Math.abs(asset.quantity) > 1e-12);
 
             // Sort by largest current holding in descending order
             temp_asset.sort((a, b) => { return b.current_price * b.quantity - a.current_price * a.quantity });
@@ -366,6 +414,8 @@ $(document).ready(function () {
 
         // ---------- Txs States ----------
         const [txsError, setTxsError] = React.useState(null);
+        // True when the active portfolio has no transactions recorded yet
+        const [noTxs, setNoTxs] = React.useState(false);
 
         const getTxs = async () => {
             // Query transactions for a specific portfolio
@@ -374,10 +424,18 @@ $(document).ready(function () {
             if (activePortfolio !== null && !ignore) {
                 const response = await fetch(`/txs_data/${activePortfolio}`);
                 const data = await response.json();
-                if (response.status !== 200) {
+                if (response.status === 404) {
+                    // An empty portfolio is not an error, so show the empty state
+                    // instead of an error banner and a permanent spinner
+                    setNoTxs(true);
+                    setTxsError(null);
+                    return null;
+                } else if (response.status !== 200) {
+                    setNoTxs(false);
                     setTxsError(data.error);
                     return null;
                 } else {
+                    setNoTxs(false);
                     setTxsError(null);
                     return data;
                 }
@@ -402,15 +460,7 @@ $(document).ready(function () {
         const areaSeriesRef = React.useRef(null);
 
         // ---------- Chart States ---------
-        const [chartUpdate, setChartUpdate] = React.useState(null);
         const [chartDisplayState, setChartDisplayState] = React.useState(true);
-        React.useEffect(() => {
-            // To update the chart data without resizing the current chart
-            if (chartUpdate !== null && areaSeriesRef !== null) {
-                areaSeriesRef.current.update(chartUpdate);
-            }
-
-        }, [chartUpdate]);
         const [chartData, setChartData] = React.useState([]);
 
         const handleChartDisplay = async () => {
@@ -431,28 +481,53 @@ $(document).ready(function () {
 
         const [uiKlinesFetchState, setUiKlinesFetchState] = React.useState(null);
         const [isLoading, setIsLoading] = React.useState(false);
-        const getuiKlinesById = async (id, date) => {
+        // The number of candles Binance returns is capped, so the candle size is
+        // picked from the age of the portfolio: the whole history stays covered
+        // and bounded instead of only the first ~20 days of it.
+        const klineIntervalFor = startTime_inMS => {
+            const spanInDays = (Date.now() - startTime_inMS) / (24 * 60 * 60 * 1000);
+            if (spanInDays > 166) { return '1d'; }
+            if (spanInDays > 41) { return '4h'; }
+            return '1h';
+        };
+
+        const getuiKlinesById = async (id, date, signal) => {
             setIsLoading(true);
-            let intervalNum = '1h';
+            const intervalNum = klineIntervalFor(date);
             let response;
             try {
-                response = await fetch(`https://api.binance.com/api/v3/uiKlines?symbol=${id}USDT&interval=${intervalNum}&startTime=${date}`);
+                response = await fetch(`https://api.binance.com/api/v3/uiKlines?symbol=${id}USDT&interval=${intervalNum}&limit=1000&startTime=${date}`, { signal });
             } catch (err) {
-                setUiKlinesFetchState('failed'); // TypeError: failed to fetch
+                if (err.name !== 'AbortError') {
+                    setUiKlinesFetchState('failed'); // TypeError: failed to fetch
+                }
+                setIsLoading(false);
                 return null;
             }
 
-            const data = await response.json();
-
             setIsLoading(false);
-            return data;
+
+            if (!response.ok) {
+                setUiKlinesFetchState('failed');
+                return null;
+            }
+
+            return response.json();
         }
 
-        const getCurrentAveragePriceById = async (id) => {
-            // Query ticker price feed from binance API
-            const response = await fetch(`https://api.binance.com/api/v3/avgPrice?symbol=${id}USDT`);
+        // One request for every asset instead of one request per asset
+        const getCurrentAveragePrices = async symbols => {
+            const pairs = symbols.map(symbol => `${symbol}USDT`);
+            const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbols=${encodeURIComponent(JSON.stringify(pairs))}`);
+            const prices = new Map();
+            if (!response.ok) {
+                return prices;
+            }
             const data = await response.json();
-            return data.price;
+            (Array.isArray(data) ? data : [data]).forEach(ticker => {
+                prices.set(ticker.symbol.replace(/USDT$/, ''), parseFloat(ticker.price));
+            });
+            return prices;
         }
 
         // Queried for user's asset market data
@@ -561,7 +636,8 @@ $(document).ready(function () {
                 asset.prev_price !== null ? (prev_networth += parseFloat(asset.quantity * asset.prev_price)) : (prev_networth += 0);
                 networth += parseFloat(asset.quantity * asset.current_price);
             });
-            total_pnl /= total_cost;
+            // Guard against an empty portfolio, where the cost basis is zero
+            total_pnl = total_cost === 0 ? 0 : total_pnl / total_cost;
         }
 
         // -------ReactSpring Animations-------
@@ -763,7 +839,7 @@ $(document).ready(function () {
                                         <div className="col-6 col-xs-5 col-md-3 col-lg-2">Holding</div>
                                         <div className="col-3 col-xs-4 col-sm-3 col-md-2 col-lg-2 col-xl-2">PNL</div>
                                     </div>
-                                    {txsError !== null ? (<div className="row ticker-header text-secondary text-end ps-5" style={{ fontSize: 13 }}>Please add some transactions.</div>) : (
+                                    {noTxs || txsError !== null ? (<div className="row ticker-header text-secondary text-end ps-5" style={{ fontSize: 13 }}>Please add some transactions.</div>) : (
                                         <Asset portfolioAsset={portfolioAsset} assetPerPage={assetPerPage} pageNum={pageNum} refreshAnimation={refreshAnimation} />)
                                     }
                                 </div>
@@ -794,11 +870,9 @@ $(document).ready(function () {
     function ChartComponent({ data, lightWeightChartRef, areaSeriesRef }) {
         const chartContainerRef = React.useRef();
 
+        // Create the chart once. Rebuilding it for every dataset change threw away
+        // the canvases and re-registered everything, which is both slow and jumpy.
         React.useEffect(() => {
-            const handleResize = () => {
-                lightWeightChartRef.current.applyOptions({ width: document.getElementById("chart").clientWidth, height: document.getElementById("chart").clientHeight });
-            };
-
             lightWeightChartRef.current = LightweightCharts.createChart(chartContainerRef.current, {
                 layout: {
                     background: { type: LightweightCharts.ColorType.Solid, color: 'white' },
@@ -808,24 +882,40 @@ $(document).ready(function () {
                     timeVisible: true,
                     secondsVisible: false,
                 },
-                width: document.getElementById("chart").clientWidth,
-                height: document.getElementById("chart").clientHeight,
+                // The container is sized by CSS (30vh), autoSize keeps the chart in
+                // sync through a ResizeObserver instead of a window resize listener
+                autoSize: true,
             });
-            lightWeightChartRef.current.timeScale().fitContent();
-            areaSeriesRef.current = lightWeightChartRef.current.addAreaSeries({ lineColor: '#2962FF', topColor: '#2962FF', bottomColor: 'rgba(41, 98, 255, 0.28)', lastPriceAnimation: LightweightCharts.LastPriceAnimationMode.Continuous });
 
-            areaSeriesRef.current.setData(data);
-            window.addEventListener('resize', handleResize);
+            areaSeriesRef.current = lightWeightChartRef.current.addAreaSeries({
+                lineColor: '#2962FF',
+                topColor: '#2962FF',
+                bottomColor: 'rgba(41, 98, 255, 0.28)',
+                // Continuous animates on every frame forever; OnDataUpdate only
+                // animates the last price when a new point arrives.
+                lastPriceAnimation: LightweightCharts.LastPriceAnimationMode.OnDataUpdate,
+            });
 
             return () => {
-                window.removeEventListener('resize', handleResize);
                 lightWeightChartRef.current.remove();
+                lightWeightChartRef.current = null;
+                areaSeriesRef.current = null;
             };
+        }, []);
+
+        // Reload the whole series only when the portfolio/history changes
+        React.useEffect(() => {
+            if (!areaSeriesRef.current || data.length === 0) {
+                return;
+            }
+            areaSeriesRef.current.setData(data);
+            lightWeightChartRef.current.timeScale().fitContent();
         }, [data]);
 
         return (
             <div
                 ref={chartContainerRef}
+                style={{ height: '100%', width: '100%' }}
             />
         );
     };

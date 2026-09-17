@@ -15,6 +15,9 @@ portfolio_venv/
 
 # testing
 /coverage
+playwright-report/
+test-results/
+.playwright/
 
 # production
 db.sqlite3
