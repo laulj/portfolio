@@ -1,32 +1,64 @@
-# Python and Linux Version 
-FROM node:16.20.2
-FROM python:3.12-alpine3.20
+# syntax=docker/dockerfile:1
 
-COPY requirements.txt /app/requirements.txt
+# ---------------------------------------------------------------------------
+# Build stage: Python dependencies (into a virtualenv that is copied over) and
+# the webpack bundles. Compiler headers and the JS toolchain stay here, they are
+# not part of the published image.
+# ---------------------------------------------------------------------------
+FROM python:3.12-alpine3.20 AS builder
 
-# Configure server
-RUN set -ex \
-    && pip install --upgrade pip \
-    && apk add -u zlib-dev jpeg-dev gcc musl-dev \
-    && apk add --no-cache npm \
-    && pip install --no-cache-dir -r /app/requirements.txt \
-    && pip install chardet
-     
+# Headers needed to build Pillow, plus the JS toolchain used by `npm run collect`
+RUN apk add --no-cache gcc musl-dev zlib-dev jpeg-dev nodejs npm
 
-# Working directory
 WORKDIR /app
 
-ADD . .
+# Python dependencies into a venv that the runtime stage can copy
+COPY requirements.txt ./
+RUN python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip \
+    && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+
+# Frontend dependencies first, so this layer is reused while the app changes
+COPY portfolio/package.json portfolio/package-lock.json ./portfolio/
+RUN cd portfolio && npm ci
+
+COPY . .
+
+# settings.py reads SECRET_KEY and DEBUG from the environment, so the manage.py
+# steps below need them. These are build-only values: the real ones are supplied
+# by the host at runtime, and `.env` is kept out of the build context by
+# .dockerignore. DEBUG stays True so webpack leaves the asset URLs to Django's
+# staticfiles storage instead of baking an S3 domain into the bundles.
+ENV SECRET_KEY="build-only-not-used-at-runtime" \
+    DEBUG=True \
+    PATH="/opt/venv/bin:$PATH"
 
 RUN cd portfolio \
-    && npm install \
     && npm run collect \
-    && python3 manage.py makemigrations backend \
-    && python3 manage.py migrate \
-    && python3 manage.py collectstatic --noinput\
-    && cd ..\
-    && rm .env
+    && python manage.py makemigrations backend \
+    && python manage.py collectstatic --noinput
 
-EXPOSE $PORT
+# ---------------------------------------------------------------------------
+# Runtime stage
+# ---------------------------------------------------------------------------
+FROM python:3.12-alpine3.20
 
-CMD gunicorn --chdir ./portfolio portfolio.wsgi:application --bind 0.0.0.0:$PORT
+# Libraries Pillow needs at runtime
+RUN apk add --no-cache libjpeg-turbo zlib \
+    && adduser -D -h /app app
+
+COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder --chown=app:app /app /app
+
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PORT=8000
+
+WORKDIR /app
+USER app
+EXPOSE 8000
+
+# Migrations are applied when the container starts (the SQLite database lives
+# inside the container), then gunicorn serves the app on $PORT.
+CMD ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn --chdir ./portfolio portfolio.wsgi:application --bind 0.0.0.0:${PORT}"]

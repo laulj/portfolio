@@ -17,3 +17,28 @@ portfolio_venv/
 */media/user_*/
 */db.sqlite3
 */staticfiles/
+
+# Secrets: never copy .env into a layer (the Dockerfile used to `rm` it after the
+# fact, which still leaves it in the image history). The runtime gets SECRET_KEY,
+# DEBUG and the AWS/S3 settings from the host environment.
+.env
+.env.*
+
+# Rebuilt inside the image by `npm run collect` / `collectstatic`
+portfolio/assets/
+portfolio/webpack-stats.json
+portfolio/staticfiles/
+
+# Test-suites and tooling that the runtime image does not need
+portfolio/e2e/
+portfolio/backend/tests/
+portfolio/playwright.config.js
+playwright-report/
+test-results/
+
+# Agent / editor scaffolding
+.agents/
+.continue/
+
+# CI configuration (not needed inside the image)
+.github/

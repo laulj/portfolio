@@ -119,6 +119,59 @@ if DEBUG is `False`, static files are configured to upload to AWS S3 bucket, the
 
 Deployed url: `https://cs50-portfolio.onrender.com/`
 
+#### What the image does
+
+The `Dockerfile` is a two-stage build (`builder` → runtime):
+
+- the `builder` stage installs the Python requirements into a virtualenv, runs
+  `npm ci` and `npm run collect`, generates the migrations
+  (`migrations/` is git-ignored) and runs `collectstatic`;
+- the runtime stage copies only that virtualenv and `/app`: the JS toolchain and
+  the compiler headers are not shipped, and the container runs as the non-root
+  `app` user;
+- `SECRET_KEY`/`DEBUG` are needed by `settings.py` during the build, so the
+  builder uses build-only values (`SECRET_KEY="build-only-not-used-at-runtime"`,
+  `DEBUG=True`). `.env` is listed in `.dockerignore`, so the real secret is never
+  copied into an image layer; the runtime reads it from the host environment
+  instead;
+- `DEBUG=True` at build time keeps the webpack output on the "plain path" branch
+  (no S3 domain baked into the bundles), and Django resolves the asset URLs
+  through its configured storage at runtime;
+- migrations are applied by the container command
+  (`python manage.py migrate --noinput && gunicorn …`), so a fresh container is
+  always up to date, and the app listens on `$PORT` (default `8000`).
+
+> The build's `collectstatic` runs locally (it does not upload to S3), so keep
+> syncing the collected files to the bucket with your usual step, e.g.
+> `aws s3 sync portfolio/staticfiles/ s3://$AWS_STORAGE_BUCKET_NAME/static/`,
+> whenever frontend assets change.
+
+#### Publishing the image
+
+`.github/workflows/publish-image.yml` builds this Dockerfile and pushes it to the
+GitHub Container Registry on every push to `main`, on every `v*` tag and on
+demand (`workflow_dispatch`). No repository secrets are needed.
+
+```
+ghcr.io/laulj/portfolio:latest        # updated on every main push
+ghcr.io/laulj/portfolio:v1.2.3        # tag pushes
+ghcr.io/laulj/portfolio:sha-abc1234
+```
+
+```bash
+# publish a release (the tag also refreshes :latest)
+git tag -s v1.2.3 -m "v1.2.3" && git push origin v1.2.3
+
+# or build and push the same image locally
+docker buildx build --platform linux/amd64 \
+    -t ghcr.io/laulj/portfolio:latest --push .
+
+# run a published image (SECRET_KEY/DEBUG come from the environment)
+docker run --rm -p 8000:8000 \
+    -e SECRET_KEY=dev-only -e DEBUG=True \
+    ghcr.io/laulj/portfolio:latest
+```
+
 ## File Functionality
 
 A description of what is contained in each file.
